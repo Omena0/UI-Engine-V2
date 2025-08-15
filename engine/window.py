@@ -1,9 +1,9 @@
+from . import util
 import pygame
 
 
-
 class Window:
-    __slots__ = ["_surface", "children", "pos", "clock", "dt", "_size", "_event_handlers", "blits", "frame"]
+    __slots__ = ["_surface", "children", "pos", "clock", "dt", "_size", "_event_handlers", "blits", "frame", "debug"]
 
     def __init__(self, size = (800, 600)) -> None:
         self._surface = pygame.display.set_mode(size)
@@ -13,6 +13,7 @@ class Window:
         self.clock = pygame.time.Clock()
         self._size = size
         self.frame = 0
+        self.debug = False
 
     def addChild(self, child) -> None:
         self.children.append(child)
@@ -67,14 +68,17 @@ class Window:
 
         self.surface.blits(blits)
 
+        # Performance statistics
+        if self.debug:
+            util.draw_performance_statistics(self.surface, self.clock)
+
         pygame.display.flip()
 
     def mainloop(self) -> None:
         self.render()
         while True:
             self.dt = self.clock.tick()
-            self.title = f'FPS: {self.clock.get_fps():.2f}, Frame time: {self.dt}ms'
-
+            util.set_average_fps(self.clock.get_fps())
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()

@@ -2,7 +2,11 @@ import engine as ui
 
 window = ui.Window()
 
-for i in range(999):
+buttons = 99999
+
+window.title = f"UI-Engine-V2 - Performance Test ({buttons+1:,} buttons)"
+
+for i in range(buttons):
     ui.Button(
         window,
         (5 + i // 37 * 29.33, 5 + i % 37 * 16),
@@ -12,5 +16,6 @@ for i in range(999):
         font=(None, 21)
     )
 
+window.debug = True
 
 window.mainloop()
