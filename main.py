@@ -1,16 +1,22 @@
 import engine as ui
 
+with open('bee.txt') as f:
+    text = f.read(2048).replace('\n', ' ')
+
 window = ui.Window()
 
-for i in range(999):
-    ui.Button(
-        window,
-        (5 + i // 37 * 29.33, 5 + i % 37 * 16),
-        f"{i+1}",
-        (27, 14),
-        corner_radius=2,
-        font=(None, 21)
+@window.event('draw')
+def draw(frame):
+    pos = ui.pygame.mouse.get_pos()
+    surf = ui.text.draw_text(
+        text,
+        (None, 36, True),
+        (255,255,255),
+        (0,0,0),
+        width=pos[0],
+        height=pos[1]
     )
 
+    window.surface.blit(surf, (0, 0))
 
 window.mainloop()

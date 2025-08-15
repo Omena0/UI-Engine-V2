@@ -1,12 +1,12 @@
 from pygame.event import Event
 from .base import ComponentBase
-from ..util import get_font
+from ..text import get_font
 from typing import Any
 import pygame
 
 class Button(ComponentBase):
     __slots__ = ["_size", "_bg_color", "_corner_radius", "_text", "_font", "_text_color",
-                 "_bg_hover_color", "_text_hover_color", "_was_hovered"]
+                 "_bg_hover_color", "_text_hover_color", "on_click"]
     def __init__(
             self, parent, pos, text, size,
             bg_color = (255, 255, 255),
@@ -14,7 +14,8 @@ class Button(ComponentBase):
             text_color = (0, 0, 0),
             text_hover_color = (0, 0, 0),
             corner_radius = 8,
-            font = (None, 38)
+            font = (None, 38),
+            on_click = lambda x: ...
     ) -> None:
         self._text = text
         self._bg_color = bg_color
@@ -24,8 +25,8 @@ class Button(ComponentBase):
         self._font = get_font(*font)
         self._bg_hover_color = bg_hover_color
         self._text_hover_color = text_hover_color
+        self.on_click = on_click
 
-        self._was_hovered = False
         super().__init__(parent, pos)
 
     @property
@@ -91,17 +92,13 @@ class Button(ComponentBase):
         self._text_hover_color = value
         self.render()
 
-    def _hovered(self) -> tuple[bool, bool]:
-        mouse_pos = pygame.mouse.get_pos()
-        hovered = self.surface.get_rect().move(*self.absolute_pos).collidepoint(mouse_pos)
-        changed = hovered != self._was_hovered
-        self._was_hovered = hovered
-        return hovered, changed
-
     def _event(self, event: Event) -> bool:
         if event.type == pygame.MOUSEMOTION:
-            if self._hovered()[1]:
+            if self._hovered(event.pos)[1]:
                 self.render()
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if self._hovered(event.pos)[0]:
+                self.on_click(self.text)
         return False
 
     def render(self) -> None:

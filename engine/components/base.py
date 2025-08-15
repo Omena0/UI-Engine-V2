@@ -1,7 +1,7 @@
 import pygame
 
 class ComponentBase:
-    __slots__ = ["parent", "_surface", "children", "_size", "blits", "_pos"]
+    __slots__ = ["parent", "_surface", "children", "_size", "blits", "_pos", "_was_hovered"]
     def __init__(self, parent, pos) -> None:
         self.parent = parent
         self._surface = None
@@ -9,13 +9,15 @@ class ComponentBase:
         self.children = []
         self.blits = []
 
+        self._was_hovered = False
+
         parent.addChild(self)
 
     def addChild(self, child) -> None:
         self.children.append(child)
         self._build_blits()
 
-    def _build_blits(self):
+    def _build_blits(self) -> None:
         """Recursively build the blits list for this component and its descendants."""
         self.blits = [(self.surface, self.absolute_pos)]
         for child in self.children:
@@ -26,6 +28,15 @@ class ComponentBase:
             max(0, min(self._size[0], self.parent._size[0] - self.pos[0])),
             max(0, min(self._size[1], self.parent._size[1] - self.pos[1]))
         )
+
+    def _hovered(self, mouse_pos=None) -> tuple[bool, bool]:
+        if not mouse_pos:
+            mouse_pos = pygame.mouse.get_pos()
+
+        hovered = self.surface.get_rect().move(*self.absolute_pos).collidepoint(mouse_pos)
+        changed = hovered != self._was_hovered
+        self._was_hovered = hovered
+        return hovered, changed
 
     @property
     def surface(self) -> pygame.Surface:
