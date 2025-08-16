@@ -2,32 +2,38 @@ from pygame.event import Event
 from .base import ComponentBase
 from ..text import get_font
 from typing import Any
+from .. import theme
 import pygame
+
 
 class Button(ComponentBase):
     __slots__ = ["_size", "_bg_color", "_corner_radius", "_text", "_font", "_text_color",
                  "_bg_hover_color", "_text_hover_color", "on_click"]
+
     def __init__(
-            self, parent, pos, text, size,
-            bg_color = (255, 255, 255),
-            bg_hover_color = (200, 200, 200),
-            text_color = (0, 0, 0),
-            text_hover_color = (0, 0, 0),
-            corner_radius = 8,
-            font = (None, 38),
-            on_click = lambda x: ...
+        self, parent, pos, text, size,
+        bg_color=None,
+        bg_hover_color=None,
+        text_color=None,
+        text_hover_color=None,
+        corner_radius=8,
+        font=(None, 38),
+        on_click=lambda x: ...
     ) -> None:
+
         self._text = text
-        self._bg_color = bg_color
-        self._text_color = text_color
+
+        # resolve colors from args or theme defaults
+        self._bg_color = bg_color if bg_color is not None else theme.get('button_bg')
+        self._text_color = text_color if text_color is not None else theme.get('button_text')
         self._corner_radius = corner_radius
         self._size = size
         self._font = get_font(*font)
-        self._bg_hover_color = bg_hover_color
-        self._text_hover_color = text_hover_color
+        self._bg_hover_color = bg_hover_color if bg_hover_color is not None else theme.get('button_bg_hover')
+        self._text_hover_color = text_hover_color if text_hover_color is not None else theme.get('button_text_hover')
         self.on_click = on_click
 
-        super().__init__(parent, pos)
+        super().__init__(parent, pos, self._size)
 
     @property
     def text(self) -> Any:

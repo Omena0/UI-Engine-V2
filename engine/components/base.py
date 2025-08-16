@@ -1,15 +1,31 @@
 import pygame
 
 class ComponentBase:
-    __slots__ = ["parent", "_surface", "children", "_size", "blits", "_pos", "_was_hovered"]
-    def __init__(self, parent, pos) -> None:
+    __slots__ = ["parent", "_surface", "children", "_size", "blits", "_pos", "_was_hovered", "events"]
+    def __init__(self, parent, pos, size=None) -> None:
         self.parent = parent
         self._surface = None
         self._pos = pos
+        # initialize _size: if provided, use it; otherwise default to parent's remaining space
+        if size is not None:
+            self._size = size
+        else:
+            try:
+                # default to fill remaining area inside parent
+                self._size = (
+                    max(0, parent._size[0] - pos[0]),
+                    max(0, parent._size[1] - pos[1])
+                )
+            except Exception:
+                # parent may not have _size set during construction; fallback to zero-size
+                self._size = (0, 0)
+
         self.children = []
         self.blits = []
 
         self._was_hovered = False
+        # simple event listeners: mapping event_name -> list[callable]
+        self.events = {}
 
         parent.addChild(self)
 
@@ -78,5 +94,28 @@ class ComponentBase:
             if child._event(event):
                 return True
         return False
+
+    # Lightweight event emitter for components
+    def on(self, event_name: str, callback):
+        self.events.setdefault(event_name, []).append(callback)
+
+    def off(self, event_name: str, callback=None):
+        if event_name not in self.events:
+            return
+        if callback is None:
+            self.events.pop(event_name, None)
+        else:
+            try:
+                self.events[event_name].remove(callback)
+            except ValueError:
+                pass
+
+    def emit(self, event_name: str, *args, **kwargs):
+        for cb in list(self.events.get(event_name, [])):
+            try:
+                cb(*args, **kwargs)
+            except Exception:
+                # swallow exceptions from listeners to avoid breaking UI loop
+                pass
 
 __all__ = ["ComponentBase"]

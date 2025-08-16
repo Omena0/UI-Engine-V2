@@ -1,18 +1,22 @@
 from .base import ComponentBase
 from typing import Any
+from .. import theme
 import pygame
+
 
 class Frame(ComponentBase):
     __slots__ = ["_size", "_color", "_corner_radius"]
+
     def __init__(
-            self, parent, pos, size,
-            color = (255, 255, 255),
-            corner_radius = 8,
+        self, parent, pos, size,
+        color=None,
+        corner_radius=8,
     ) -> None:
-        self._color = color
+        t = theme.current
+        self._color = color if color is not None else t.get('frame_color', (255, 255, 255))
         self._corner_radius = corner_radius
         self._size = size
-        super().__init__(parent, pos)
+        super().__init__(parent, pos, self._size)
 
     @property
     def color(self) -> Any:
@@ -45,5 +49,6 @@ class Frame(ComponentBase):
         for child in self.children:
             child.render()
             self.blits.extend(child.blits)
+
 
 __all__ = ["Frame"]

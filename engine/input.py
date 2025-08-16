@@ -1,0 +1,377 @@
+import pygame
+from typing import Any
+from .text import get_caret_index_at_x
+import clipboard
+
+def _prev_word_index(s: str, idx: int) -> int:
+    if not s or idx <= 0:
+        return 0
+    j = idx
+    # skip whitespace to the left
+    while j > 0 and s[j-1].isspace():
+        j -= 1
+    # skip non-whitespace (the previous word)
+    while j > 0 and not s[j-1].isspace():
+        j -= 1
+    return j
+
+def _next_word_index(s: str, idx: int) -> int:
+    if not s:
+        return 0
+    n = len(s)
+    j = idx
+    # skip current word chars
+    while j < n and not s[j].isspace():
+        j += 1
+    # skip whitespace to the start of next word
+    while j < n and s[j].isspace():
+        j += 1
+    return j
+
+
+class InputManager:
+    """Centralized input handling for Input components.
+
+    Components should call `input_manager.handle_event(component, event)` from
+    their `_event` method. The manager will mutate component attributes
+    (like `_value`, `_caret`, `_sel_start`, `_sel_end`, `_composition`,
+    `_dragging`) and call `component.render()` when needed. It will also call
+    `component.emit('submit', value)` and `component.on_enter` as appropriate.
+    """
+
+    def __init__(self):
+        # placeholder for future shared state
+        self.last_focus = None
+
+    def handle_event(self, comp: Any, event: pygame.event.Event) -> bool:
+        # Ensure component has expected attributes with sensible default types
+        defaults = {
+            '_value': '',
+            '_caret': 0,
+            '_sel_start': 0,
+            '_sel_end': 0,
+            '_sel_anchor': None,
+            '_placeholder': '',
+            '_focused': False,
+        }
+        for attr, val in defaults.items():
+            if not hasattr(comp, attr):
+                setattr(comp, attr, val)
+
+        # Mouse caret placement / double click / dragging
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                mx, my = event.pos
+                ax, ay = comp.absolute_pos
+                rel_x = mx - ax
+                rel_y = my - ay
+                if 0 <= rel_x < comp.size[0] and 0 <= rel_y < comp.size[1]:
+                    # manage focus: clear previous focus, set current
+                    try:
+                        if self.last_focus is not None and self.last_focus is not comp:
+                            setattr(self.last_focus, '_focused', False)
+                            try:
+                                self.last_focus.render()
+                            except Exception:
+                                pass
+                        setattr(comp, '_focused', True)
+                        self.last_focus = comp
+                    except Exception:
+                        pass
+                    if not isinstance(comp._font, pygame.font.Font):
+                        from .text import get_font
+                        font = get_font(*comp._font)
+                    else:
+                        font = comp._font
+
+                    clicks = getattr(event, 'clicks', 1)
+                    if clicks >= 2:
+                        s = comp._value
+                        if not s:
+                            return True
+                        idx = get_caret_index_at_x(s, font, rel_x)
+                        if idx > 0 and idx == len(s):
+                            idx -= 1
+                        start = idx
+                        while start > 0 and not s[start - 1].isspace():
+                            start -= 1
+                        end = idx
+                        while end < len(s) and not s[end].isspace():
+                            end += 1
+                        comp._sel_start, comp._sel_end = start, end
+                        comp._caret = end
+                        # set anchor to the start of the double-click selection
+                        comp._sel_anchor = start
+                        comp.render()
+                        return True
+
+                    comp._dragging = True
+                    comp._composition = ''
+                    comp._caret = get_caret_index_at_x(comp._value, font, rel_x)
+                    comp._sel_start = comp._sel_end = comp._caret
+                    # set the selection anchor at the caret when starting a drag/click
+                    comp._sel_anchor = comp._caret
+                    comp.render()
+                    return True
+
+        # Keyboard handling
+        if event.type == pygame.KEYDOWN:
+            # Select all (Ctrl+A)
+            if event.key == pygame.K_a and (event.mod & pygame.KMOD_CTRL):
+                comp._sel_start = 0
+                comp._sel_end = len(comp._value)
+                comp._caret = comp._sel_end
+                comp._sel_anchor = 0
+                comp.render()
+                return True
+
+            # Copy
+            if event.key == pygame.K_c and (event.mod & pygame.KMOD_CTRL):
+                if comp._sel_start != comp._sel_end:
+                    a, b = sorted((comp._sel_start, comp._sel_end))
+                    piece = comp._value[a:b]
+                    try:
+                        clipboard.copy(piece)
+                    except Exception:
+                        pass
+                    return True
+
+            # Cut
+            if event.key == pygame.K_x and (event.mod & pygame.KMOD_CTRL):
+                if comp._sel_start != comp._sel_end:
+                    a, b = sorted((comp._sel_start, comp._sel_end))
+                    piece = comp._value[a:b]
+                    try:
+                        clipboard.copy(piece)
+                    except Exception:
+                        pass
+                    comp._value = comp._value[:a] + comp._value[b:]
+                    comp._caret = a
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                    comp.render()
+                    return True
+
+            # Paste
+            if event.key == pygame.K_v and (event.mod & pygame.KMOD_CTRL):
+                try:
+                            txt = ''
+                            try:
+                                val = clipboard.paste()
+                                if val is None:
+                                    txt = ''
+                                else:
+                                    txt = str(val)
+                            except Exception:
+                                txt = ''
+
+                            # insert even if empty string (user expects paste action)
+                            if comp._sel_start != comp._sel_end:
+                                a, b = sorted((comp._sel_start, comp._sel_end))
+                                comp._value = comp._value[:a] + txt + comp._value[b:]
+                                comp._caret = a + len(txt)
+                                comp._sel_start = comp._sel_end = comp._caret
+                                comp._sel_anchor = None
+                            else:
+                                comp._value = comp._value[:comp._caret] + txt + comp._value[comp._caret:]
+                                comp._caret += len(txt)
+                                comp._sel_start = comp._sel_end = comp._caret
+                                comp._sel_anchor = None
+                            comp.render()
+                            return True
+                except Exception:
+                    pass
+
+            # Backspace
+            if event.key == pygame.K_BACKSPACE:
+                ctrl = bool(event.mod & pygame.KMOD_CTRL)
+                if comp._sel_start != comp._sel_end:
+                    a, b = sorted((comp._sel_start, comp._sel_end))
+                    comp._value = comp._value[:a] + comp._value[b:]
+                    comp._caret = a
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                    comp.render()
+                    return True
+                # Ctrl+Backspace: delete previous word
+                if ctrl:
+                    if comp._caret > 0:
+                        new_pos = _prev_word_index(comp._value, comp._caret)
+                        comp._value = comp._value[:new_pos] + comp._value[comp._caret:]
+                        comp._caret = new_pos
+                        comp._sel_start = comp._sel_end = comp._caret
+                        comp._sel_anchor = None
+                        comp.render()
+                        return True
+
+                # normal backspace: delete single char to the left
+                if comp._caret > 0:
+                    comp._value = comp._value[:comp._caret - 1] + comp._value[comp._caret:]
+                    comp._caret -= 1
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                    comp.render()
+                    return True
+
+            # Delete
+            if event.key == pygame.K_DELETE:
+                ctrl = bool(event.mod & pygame.KMOD_CTRL)
+                # If there's a selection, delete it first
+                if comp._sel_start != comp._sel_end:
+                    a, b = sorted((comp._sel_start, comp._sel_end))
+                    comp._value = comp._value[:a] + comp._value[b:]
+                    comp._caret = a
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                    comp.render()
+                    return True
+
+                # Ctrl+Delete: delete to next word boundary
+                if ctrl:
+                    if comp._caret < len(comp._value):
+                        new_pos = _next_word_index(comp._value, comp._caret)
+                        comp._value = comp._value[:comp._caret] + comp._value[new_pos:]
+                        comp._sel_start = comp._sel_end = comp._caret
+                        comp._sel_anchor = None
+                        comp.render()
+                        return True
+
+                # Normal delete: delete single character after caret
+                if comp._caret < len(comp._value):
+                    comp._value = comp._value[:comp._caret] + comp._value[comp._caret + 1:]
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp.render()
+                    return True
+
+            # Left arrow
+            if event.key == pygame.K_LEFT:
+                ctrl = bool(event.mod & pygame.KMOD_CTRL)
+                shift = bool(event.mod & pygame.KMOD_SHIFT)
+                if ctrl:
+                    new_pos = _prev_word_index(comp._value, comp._caret)
+                else:
+                    new_pos = max(0, comp._caret - 1)
+                if shift:
+                    # Use explicit selection anchor if present; otherwise start one at the caret
+                    anchor = comp._sel_anchor if getattr(comp, '_sel_anchor', None) is not None else comp._caret
+                    # coerce anchor to int to avoid None being present
+                    if anchor is None:
+                        anchor = comp._caret
+                    comp._caret = new_pos
+                    a, b = sorted((anchor, comp._caret))
+                    comp._sel_start, comp._sel_end = a, b
+                    # keep the anchor while shift-selecting
+                    comp._sel_anchor = anchor
+                else:
+                    comp._caret = new_pos
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                comp.render()
+                return True
+
+            # Right arrow
+            if event.key == pygame.K_RIGHT:
+                ctrl = bool(event.mod & pygame.KMOD_CTRL)
+                shift = bool(event.mod & pygame.KMOD_SHIFT)
+                if ctrl:
+                    new_pos = _next_word_index(comp._value, comp._caret)
+                else:
+                    new_pos = min(len(comp._value), comp._caret + 1)
+                if shift:
+                    anchor = comp._sel_anchor if getattr(comp, '_sel_anchor', None) is not None else comp._caret
+                    if anchor is None:
+                        anchor = comp._caret
+                    comp._caret = new_pos
+                    a, b = sorted((anchor, comp._caret))
+                    comp._sel_start, comp._sel_end = a, b
+                    comp._sel_anchor = anchor
+                else:
+                    comp._caret = new_pos
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                comp.render()
+                return True
+
+            # Enter / submit
+            if event.key == pygame.K_RETURN:
+                if callable(getattr(comp, 'on_enter', None)):
+                    try:
+                        comp.on_enter(comp._value)
+                    except Exception:
+                        pass
+                try:
+                    comp.emit('submit', comp._value)
+                except Exception:
+                    pass
+                return True
+
+            # Printable chars: when pygame provides TEXTINPUT events, prefer
+            # using TEXTINPUT for text insertion to handle IME and avoid
+            # duplicate characters (KEYDOWN + TEXTINPUT). Fall back to
+            # KEYDOWN insertion when TEXTINPUT is not available.
+            if not hasattr(pygame, 'TEXTINPUT'):
+                ch = event.unicode
+                if ch:
+                    if comp._sel_start != comp._sel_end:
+                        a, b = sorted((comp._sel_start, comp._sel_end))
+                        comp._value = comp._value[:a] + ch + comp._value[b:]
+                        comp._caret = a + len(ch)
+                        comp._sel_start = comp._sel_end = comp._caret
+                        comp.render()
+                        return True
+                    comp._value = comp._value[:comp._caret] + ch + comp._value[comp._caret:]
+                    comp._caret += len(ch)
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp.render()
+                    return True
+
+        # TEXTINPUT (IME)
+        if event.type == pygame.TEXTINPUT:
+            txt = getattr(event, 'text', '')
+            if txt:
+                if comp._sel_start != comp._sel_end:
+                    a, b = sorted((comp._sel_start, comp._sel_end))
+                    comp._value = comp._value[:a] + txt + comp._value[b:]
+                    comp._caret = a + len(txt)
+                    comp._sel_start = comp._sel_end = comp._caret
+                else:
+                    comp._value = comp._value[:comp._caret] + txt + comp._value[comp._caret:]
+                    comp._caret += len(txt)
+                    comp._sel_start = comp._sel_end = comp._caret
+                comp.render()
+                return True
+
+        # Mouse drag selection
+        if event.type == pygame.MOUSEMOTION:
+            if getattr(comp, '_dragging', False):
+                mx, my = event.pos
+                ax, ay = comp.absolute_pos
+                rel_x = mx - ax
+                rel_y = my - ay
+                if not isinstance(comp._font, pygame.font.Font):
+                    from .text import get_font
+                    font = get_font(*comp._font)
+                else:
+                    font = comp._font
+                rel_x = max(0, min(rel_x, comp.size[0] - 1))
+                idx = get_caret_index_at_x(comp._value, font, rel_x)
+                comp._sel_end = idx
+                comp._caret = idx
+                comp.render()
+                return True
+
+        if event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1 and getattr(comp, '_dragging', False):
+                comp._dragging = False
+                return True
+
+        # TEXTEDITING (IME composition)
+        if event.type == getattr(pygame, 'TEXTEDITING', None):
+            comp._composition = getattr(event, 'text', '') or ''
+            comp.render()
+            return True
+
+        return False
+
+
+input_manager = InputManager()
