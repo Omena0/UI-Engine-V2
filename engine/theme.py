@@ -69,6 +69,24 @@ LIGHT = {
     'dropdown_text': (28, 34, 40),
     'dropdown_border': (200, 206, 212),
     'dropdown_hover': (236, 242, 246),
+    # Radio
+    'radio_bg': (255, 255, 255),
+    'radio_border': (160, 160, 160),
+    'radio_dot': (40, 110, 200),
+    'radio_hover': (236, 242, 246),
+    # Slider
+    'slider_bg': (224, 228, 232),
+    'slider_fg': (40, 110, 200),
+    'slider_knob': (255, 255, 255),
+    'slider_text': (28, 34, 40),
+
+    # Progress
+    'progress_bg': (230, 230, 230),
+    'progress_fg': (40, 110, 200),
+    'progress_knob': (255, 255, 255),
+    # Segmented control
+    'segmented_bg': (236, 242, 246),
+    'segmented_selected': (40, 110, 200),
 }
 
 # Dark-mode overrides
@@ -131,6 +149,26 @@ DARK = {
     'dropdown_text': (230, 230, 235),
     'dropdown_border': (70, 70, 78),
     'dropdown_hover': (56, 56, 58),
+
+    # Radio
+    'radio_bg': (36, 36, 38),
+    'radio_border': (90, 90, 94),
+    'radio_dot': (80, 150, 255),
+    'radio_hover': (56, 56, 58),
+
+    # Slider
+    'slider_bg': (56, 56, 58),
+    'slider_fg': (80, 150, 255),
+    'slider_knob': (230, 230, 235),
+    'slider_text': (230, 230, 235),
+
+    # Progress
+    'progress_bg': (48, 48, 50),
+    'progress_fg': (80, 150, 255),
+    'progress_knob': (230, 230, 235),
+    # Segmented control
+    'segmented_bg': (36, 36, 38),
+    'segmented_selected': (80, 150, 255),
 }
 
 _current_themes: list[dict] = [LIGHT, DARK]

@@ -134,11 +134,20 @@ class Dropdown(ComponentBase):
         popup_pos = (self.absolute_pos[0], self.absolute_pos[1] + self._size[1])
         w = self._find_window()
         if w and isinstance(w.blits, list) and len(w.blits) > 1 and isinstance(w.blits[1], list):
-            w.blits[1] = [
-                b
-                for b in w.blits[1]
-                if b[1] != popup_pos or b[0].get_size() != (self._size[0], popup_h)
-            ]
+            if getattr(self, '_popup_gid', None) is not None:
+                gid = self._popup_gid
+                try:
+                    w.remove_overlay(gid)
+                except Exception:
+                    # fallback to manual filter
+                    w.blits[1] = [b for b in w.blits[1] if not (isinstance(b, tuple) and len(b) == 3 and b[0] == gid)]
+                self._popup_gid = None
+            else:
+                w.blits[1] = [
+                    b
+                    for b in w.blits[1]
+                    if b[1] != popup_pos or b[0].get_size() != (self._size[0], popup_h)
+                ]
 
         self._open = False
         self.render()
@@ -245,14 +254,19 @@ class Dropdown(ComponentBase):
                     w.blits = [base]
                 if len(w.blits) < 2:
                     w.blits.append([])
-                # remove previous popup for this position to avoid duplicates
-                w.blits[1] = [
-                    b
-                    for b in w.blits[1]
-                    if b[1] != popup_pos
-                    or b[0].get_size() != (self._size[0], popup_h)
-                ]
-                w.blits[1].append((popup, popup_pos))
+                # let Window manage overlay gid allocation when possible
+                try:
+                    new_gid = w.add_overlay(popup, popup_pos, layer=1)
+                    self._popup_gid = new_gid
+                except Exception:
+                    # fallback to manual behavior (position/size dedupe)
+                    w.blits[1] = [
+                        b
+                        for b in w.blits[1]
+                        if b[1] != popup_pos
+                        or b[0].get_size() != (self._size[0], popup_h)
+                    ]
+                    w.blits[1].append((popup, popup_pos))
             else:
                 self.blits.append((popup, popup_pos))
 

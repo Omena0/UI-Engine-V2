@@ -6,7 +6,7 @@ class Window:
     __slots__ = [
         "_surface", "children", "pos", "clock", "dt",
         "_size", "_event_handlers", "blits", "frame",
-        "debug", "mode", "_overlay_focus"
+        "debug", "mode", "_overlay_focus", "_next_gid"
     ]
 
     def __init__(self, size = (800, 600)) -> None:
@@ -18,6 +18,8 @@ class Window:
         self._size = size
         # which overlay component currently has claimed focus (can consume events)
         self._overlay_focus = None
+        # numeric id allocator for overlay groups
+        self._next_gid = 1
         self.frame = 0
         self.debug = False
         self.mode = 'hybrid'
@@ -118,7 +120,22 @@ class Window:
         # Flatten for pygame blit call
         flat = []
         for layer in layers:
-            flat.extend(layer)
+            # overlay entries may be (surface, pos) or (gid, surface, pos)
+            for entry in layer:
+                if not entry:
+                    continue
+                if isinstance(entry, tuple) and len(entry) == 2:
+                    flat.append(entry)
+                elif isinstance(entry, tuple) and len(entry) == 3:
+                    # (gid, surface, pos)
+                    _, surf, pos = entry
+                    flat.append((surf, pos))
+                else:
+                    # unknown format, try to append directly
+                    try:
+                        flat.append(entry)
+                    except Exception:
+                        pass
 
         # batch blit
         if flat:
@@ -127,6 +144,39 @@ class Window:
         util.draw_performance_statistics(self.surface, self.clock)
 
         pygame.display.flip()
+
+    def add_overlay(self, surface: pygame.Surface, pos: tuple[int,int], layer:int=1) -> int:
+        """Add an overlay surface to a given layer and return a numeric GID.
+
+        The overlay entry is stored as (gid, surface, pos).
+        """
+        # ensure layered structure
+        if not (self.blits and isinstance(self.blits[0], list)):
+            base = self.blits if isinstance(self.blits, list) else []
+            self.blits = [base]
+        # ensure requested layer exists
+        while len(self.blits) <= layer:
+            self.blits.append([])
+        gid = getattr(self, '_next_gid', 1)
+        try:
+            self._next_gid = gid + 1
+        except Exception:
+            # best-effort; if _next_gid can't be set, continue without increment
+            pass
+        self.blits[layer].append((gid, surface, pos))
+        return gid
+
+    def remove_overlay(self, gid: int) -> bool:
+        """Remove overlay entries with the given gid. Returns True if any removed."""
+        removed = False
+        if not (self.blits and isinstance(self.blits[0], list)):
+            return False
+        for i in range(1, len(self.blits)):
+            before = len(self.blits[i])
+            self.blits[i] = [b for b in self.blits[i] if not (isinstance(b, tuple) and len(b) == 3 and b[0] == gid)]
+            if len(self.blits[i]) != before:
+                removed = True
+        return removed
 
     def mainloop(self) -> None:
         self.render()
