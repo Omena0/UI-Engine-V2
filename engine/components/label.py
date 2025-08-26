@@ -4,7 +4,7 @@ from .. import text
 
 
 class Label(ComponentBase):
-    __slots__ = ['_text', '_font', '_color', '_bg_color', '_line_spacing', '_wrap']
+    __slots__ = ['_text', '_font', '_ov_color', '_ov_bg_color', '_size', '_line_spacing', '_wrap']
 
     def __init__(
         self, parent, pos, text, font,
@@ -12,11 +12,11 @@ class Label(ComponentBase):
         size=None, max_width=500, max_height=300,
         line_spacing=1.2, wrap=True
     ):
-        t = theme.current
         self._text = text
         self._font = font
-        self._color = color if color is not None else t.get('label_text', (255, 255, 255))
-        self._bg_color = bg_color if bg_color is not None else t.get('label_bg', None)
+        # store overrides; resolve actual colors in render() so theme updates apply
+        self._ov_color = color
+        self._ov_bg_color = bg_color
         # allow explicit size override, else use legacy max_width/max_height
         self._size = size if size is not None else (max_width, max_height)
         self._line_spacing = line_spacing
@@ -44,20 +44,20 @@ class Label(ComponentBase):
 
     @property
     def color(self):
-        return self._color
+        return self._ov_color if self._ov_color is not None else theme.get('label_text')
 
     @color.setter
     def color(self, value):
-        self._color = value
+        self._ov_color = value
         self.render()
 
     @property
     def bg_color(self):
-        return self._bg_color
+        return self._ov_bg_color if self._ov_bg_color is not None else theme.get('label_bg')
 
     @bg_color.setter
     def bg_color(self, value):
-        self._bg_color = value
+        self._ov_bg_color = value
         self.render()
 
     @property

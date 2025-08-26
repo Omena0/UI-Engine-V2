@@ -39,11 +39,14 @@ class InputManager:
     `component.emit('submit', value)` and `component.on_enter` as appropriate.
     """
 
-    def __init__(self):
+    def __init__(self, component, multiline: bool = False):
         # placeholder for future shared state
         self.last_focus = None
+        self.component = component
+        self.multiline = multiline
 
-    def handle_event(self, comp: Any, event: pygame.event.Event) -> bool:
+    def handle_event(self, event: pygame.event.Event) -> bool:
+        comp = self.component
         # Ensure component has expected attributes with sensible default types
         defaults = {
             '_value': '',
@@ -59,60 +62,114 @@ class InputManager:
                 setattr(comp, attr, val)
 
         # Mouse caret placement / double click / dragging
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                mx, my = event.pos
-                ax, ay = comp.absolute_pos
-                rel_x = mx - ax
-                rel_y = my - ay
-                if 0 <= rel_x < comp.size[0] and 0 <= rel_y < comp.size[1]:
-                    # manage focus: clear previous focus, set current
-                    try:
-                        if self.last_focus is not None and self.last_focus is not comp:
-                            setattr(self.last_focus, '_focused', False)
-                            try:
-                                self.last_focus.render()
-                            except Exception:
-                                pass
-                        setattr(comp, '_focused', True)
-                        self.last_focus = comp
-                    except Exception:
-                        pass
-                    if not isinstance(comp._font, pygame.font.Font):
-                        from .text import get_font
-                        font = get_font(*comp._font)
-                    else:
-                        font = comp._font
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = event.pos
+            ax, ay = comp.absolute_pos
+            rel_x = mx - ax
+            rel_y = my - ay
+            if 0 <= rel_x < comp.size[0] and 0 <= rel_y < comp.size[1]:
+                # manage focus: clear previous focus, set current
+                try:
+                    if self.last_focus is not None and self.last_focus is not comp:
+                        setattr(self.last_focus, '_focused', False)
+                        try:
+                            self.last_focus.render()
+                        except Exception:
+                            pass
+                    setattr(comp, '_focused', True)
+                    self.last_focus = comp
+                except Exception:
+                    pass
+                if not isinstance(comp._font, pygame.font.Font):
+                    from .text import get_font
+                    font = get_font(*comp._font)
+                else:
+                    font = comp._font
 
-                    clicks = getattr(event, 'clicks', 1)
-                    if clicks >= 2:
-                        s = comp._value
-                        if not s:
-                            return True
-                        idx = get_caret_index_at_x(s, font, rel_x)
-                        if idx > 0 and idx == len(s):
-                            idx -= 1
-                        start = idx
-                        while start > 0 and not s[start - 1].isspace():
-                            start -= 1
-                        end = idx
-                        while end < len(s) and not s[end].isspace():
-                            end += 1
-                        comp._sel_start, comp._sel_end = start, end
-                        comp._caret = end
-                        # set anchor to the start of the double-click selection
-                        comp._sel_anchor = start
-                        comp.render()
+                clicks = getattr(event, 'clicks', 1)
+                if clicks >= 2:
+                    s = comp._value
+                    if not s:
                         return True
-
-                    comp._dragging = True
-                    comp._composition = ''
-                    comp._caret = get_caret_index_at_x(comp._value, font, rel_x)
-                    comp._sel_start = comp._sel_end = comp._caret
-                    # set the selection anchor at the caret when starting a drag/click
-                    comp._sel_anchor = comp._caret
+                    # For multiline, find the clicked line and compute word selection there
+                    if getattr(comp, 'multiline', False):
+                        lines = s.split('\n')
+                        # Visual layout constants must match Field.render
+                        padding_x = 10
+                        padding_y = 8
+                        margin = 12
+                        line_spacing = 1.2
+                        line_h = font.size('T')[1]
+                        # compute content offset y as in Field.render
+                        if getattr(comp, '_scroll_y', 0) > 0:
+                            content_offset_y = padding_y - int(getattr(comp, '_scroll_y', 0)) - margin
+                        else:
+                            content_offset_y = padding_y
+                        # determine clicked line index
+                        y_in_text = rel_y - content_offset_y
+                        li = int(y_in_text / (line_h * line_spacing)) if line_h > 0 else 0
+                        li = max(0, min(li, len(lines) - 1))
+                        line_text = lines[li]
+                        # compute x relative to the drawn text same as Field
+                        if getattr(comp, '_scroll_x', 0) > 0:
+                            content_offset_x = padding_x - int(getattr(comp, '_scroll_x', 0)) - margin
+                        else:
+                            content_offset_x = padding_x - int(getattr(comp, '_scroll_x', 0))
+                        x_in_line = rel_x - content_offset_x
+                        idx_in_line = get_caret_index_at_x(line_text, font, x_in_line)
+                        # map to overall index
+                        base = sum(len(l) + 1 for l in lines[:li])
+                        idx = max(0, min(base + idx_in_line, len(s)))
+                    else:
+                        idx = get_caret_index_at_x(s, font, rel_x)
+                    if idx > 0 and idx == len(s):
+                        idx -= 1
+                    start = idx
+                    while start > 0 and not s[start - 1].isspace():
+                        start -= 1
+                    end = idx
+                    
+                    while end < len(s) and not s[end].isspace():
+                        end += 1
+                    comp._sel_start, comp._sel_end = start, end
+                    comp._caret = end
+                    # set anchor to the start of the double-click selection
+                    comp._sel_anchor = start
                     comp.render()
                     return True
+
+                comp._dragging = True
+                comp._composition = ''
+                # For multiline, determine clicked line and map x to that line
+                if getattr(comp, 'multiline', False):
+                    lines = comp._value.split('\n')
+                    padding_x = 10
+                    padding_y = 8
+                    margin = 12
+                    line_spacing = 1.2
+                    line_h = font.size('T')[1]
+                    if getattr(comp, '_scroll_y', 0) > 0:
+                        content_offset_y = padding_y - int(getattr(comp, '_scroll_y', 0)) - margin
+                    else:
+                        content_offset_y = padding_y
+                    y_in_text = rel_y - content_offset_y
+                    li = int(y_in_text / (line_h * line_spacing)) if line_h > 0 else 0
+                    li = max(0, min(li, len(lines) - 1))
+                    if getattr(comp, '_scroll_x', 0) > 0:
+                        content_offset_x = padding_x - int(getattr(comp, '_scroll_x', 0)) - margin
+                    else:
+                        content_offset_x = padding_x - int(getattr(comp, '_scroll_x', 0))
+                    x_in_line = rel_x - content_offset_x
+                    idx_in_line = get_caret_index_at_x(lines[li], font, x_in_line)
+                    base = sum(len(l) + 1 for l in lines[:li])
+                    comp._caret = max(0, min(base + idx_in_line, len(comp._value)))
+                else:
+                    comp._caret = get_caret_index_at_x(comp._value, font, rel_x)
+                comp._sel_start = comp._sel_end = comp._caret
+                # set the selection anchor at the caret when starting a drag/click
+                comp._sel_anchor = comp._caret
+                comp.render()
+                return True
 
         # Keyboard handling
         if event.type == pygame.KEYDOWN:
@@ -126,59 +183,52 @@ class InputManager:
                 return True
 
             # Copy
-            if event.key == pygame.K_c and (event.mod & pygame.KMOD_CTRL):
-                if comp._sel_start != comp._sel_end:
-                    a, b = sorted((comp._sel_start, comp._sel_end))
-                    piece = comp._value[a:b]
-                    try:
-                        clipboard.copy(piece)
-                    except Exception:
-                        pass
-                    return True
+            if event.key == pygame.K_c and (event.mod & pygame.KMOD_CTRL) and comp._sel_start != comp._sel_end:
+                a, b = sorted((comp._sel_start, comp._sel_end))
+                piece = comp._value[a:b]
+                try:
+                    clipboard.copy(piece)
+                except Exception:
+                    pass
+                return True
 
             # Cut
-            if event.key == pygame.K_x and (event.mod & pygame.KMOD_CTRL):
-                if comp._sel_start != comp._sel_end:
-                    a, b = sorted((comp._sel_start, comp._sel_end))
-                    piece = comp._value[a:b]
-                    try:
-                        clipboard.copy(piece)
-                    except Exception:
-                        pass
-                    comp._value = comp._value[:a] + comp._value[b:]
-                    comp._caret = a
-                    comp._sel_start = comp._sel_end = comp._caret
-                    comp._sel_anchor = None
-                    comp.render()
-                    return True
+            if event.key == pygame.K_x and (event.mod & pygame.KMOD_CTRL) and comp._sel_start != comp._sel_end:
+                a, b = sorted((comp._sel_start, comp._sel_end))
+                piece = comp._value[a:b]
+                try:
+                    clipboard.copy(piece)
+                except Exception:
+                    pass
+                comp._value = comp._value[:a] + comp._value[b:]
+                comp._caret = a
+                comp._sel_start = comp._sel_end = comp._caret
+                comp._sel_anchor = None
+                comp.render()
+                return True
 
             # Paste
             if event.key == pygame.K_v and (event.mod & pygame.KMOD_CTRL):
                 try:
-                            txt = ''
-                            try:
-                                val = clipboard.paste()
-                                if val is None:
-                                    txt = ''
-                                else:
-                                    txt = str(val)
-                            except Exception:
-                                txt = ''
+                    txt = ''
+                    try:
+                        val = clipboard.paste()
+                        txt = '' if val is None else str(val)
+                    except Exception:
+                        txt = ''
 
-                            # insert even if empty string (user expects paste action)
-                            if comp._sel_start != comp._sel_end:
-                                a, b = sorted((comp._sel_start, comp._sel_end))
-                                comp._value = comp._value[:a] + txt + comp._value[b:]
-                                comp._caret = a + len(txt)
-                                comp._sel_start = comp._sel_end = comp._caret
-                                comp._sel_anchor = None
-                            else:
-                                comp._value = comp._value[:comp._caret] + txt + comp._value[comp._caret:]
-                                comp._caret += len(txt)
-                                comp._sel_start = comp._sel_end = comp._caret
-                                comp._sel_anchor = None
-                            comp.render()
-                            return True
+                    # insert even if empty string (user expects paste action)
+                    if comp._sel_start != comp._sel_end:
+                        a, b = sorted((comp._sel_start, comp._sel_end))
+                        comp._value = comp._value[:a] + txt + comp._value[b:]
+                        comp._caret = a + len(txt)
+                    else:
+                        comp._value = comp._value[:comp._caret] + txt + comp._value[comp._caret:]
+                        comp._caret += len(txt)
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                    comp.render()
+                    return True
                 except Exception:
                     pass
 
@@ -194,18 +244,17 @@ class InputManager:
                     comp.render()
                     return True
                 # Ctrl+Backspace: delete previous word
-                if ctrl:
-                    if comp._caret > 0:
-                        new_pos = _prev_word_index(comp._value, comp._caret)
-                        comp._value = comp._value[:new_pos] + comp._value[comp._caret:]
-                        comp._caret = new_pos
-                        comp._sel_start = comp._sel_end = comp._caret
-                        comp._sel_anchor = None
-                        comp.render()
-                        return True
+                if ctrl and comp._caret > 0:
+                    new_pos = _prev_word_index(comp._value, comp._caret)
+                    comp._value = comp._value[:new_pos] + comp._value[comp._caret:]
+                    comp._caret = new_pos
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                    comp.render()
+                    return True
 
                 # normal backspace: delete single char to the left
-                if comp._caret > 0:
+                if not ctrl and comp._caret > 0:
                     comp._value = comp._value[:comp._caret - 1] + comp._value[comp._caret:]
                     comp._caret -= 1
                     comp._sel_start = comp._sel_end = comp._caret
@@ -227,14 +276,13 @@ class InputManager:
                     return True
 
                 # Ctrl+Delete: delete to next word boundary
-                if ctrl:
-                    if comp._caret < len(comp._value):
-                        new_pos = _next_word_index(comp._value, comp._caret)
-                        comp._value = comp._value[:comp._caret] + comp._value[new_pos:]
-                        comp._sel_start = comp._sel_end = comp._caret
-                        comp._sel_anchor = None
-                        comp.render()
-                        return True
+                if ctrl and comp._caret < len(comp._value):
+                    new_pos = _next_word_index(comp._value, comp._caret)
+                    comp._value = comp._value[:comp._caret] + comp._value[new_pos:]
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                    comp.render()
+                    return True
 
                 # Normal delete: delete single character after caret
                 if comp._caret < len(comp._value):
@@ -269,6 +317,76 @@ class InputManager:
                 comp.render()
                 return True
 
+            # Up arrow (move caret up one visual line)
+            if event.key == pygame.K_UP and getattr(self, 'multiline', False):
+                shift = bool(event.mod & pygame.KMOD_SHIFT)
+                # compute current line and column
+                lines = comp._value.split('\n')
+                pos = max(0, min(comp._caret, len(comp._value)))
+                li = 0
+                col = 0
+                for i, ln in enumerate(lines):
+                    if pos <= len(ln):
+                        li = i
+                        col = pos
+                        break
+                    pos -= (len(ln) + 1)
+                else:
+                    li = len(lines) - 1
+                    col = len(lines[-1])
+                # move up a line keeping column if possible
+                new_li = max(0, li - 1)
+                new_col = min(col, len(lines[new_li]))
+                new_pos = sum(len(l) + 1 for l in lines[:new_li]) + new_col
+                if shift:
+                    anchor = comp._sel_anchor if getattr(comp, '_sel_anchor', None) is not None else comp._caret
+                    if anchor is None:
+                        anchor = comp._caret
+                    comp._caret = new_pos
+                    a, b = sorted((anchor, comp._caret))
+                    comp._sel_start, comp._sel_end = a, b
+                    comp._sel_anchor = anchor
+                else:
+                    comp._caret = new_pos
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                comp.render()
+                return True
+
+            # Down arrow (move caret down one visual line)
+            if event.key == pygame.K_DOWN and getattr(self, 'multiline', False):
+                shift = bool(event.mod & pygame.KMOD_SHIFT)
+                lines = comp._value.split('\n')
+                pos = max(0, min(comp._caret, len(comp._value)))
+                li = 0
+                col = 0
+                for i, ln in enumerate(lines):
+                    if pos <= len(ln):
+                        li = i
+                        col = pos
+                        break
+                    pos -= (len(ln) + 1)
+                else:
+                    li = len(lines) - 1
+                    col = len(lines[-1])
+                new_li = min(len(lines) - 1, li + 1)
+                new_col = min(col, len(lines[new_li]))
+                new_pos = sum(len(l) + 1 for l in lines[:new_li]) + new_col
+                if shift:
+                    anchor = comp._sel_anchor if getattr(comp, '_sel_anchor', None) is not None else comp._caret
+                    if anchor is None:
+                        anchor = comp._caret
+                    comp._caret = new_pos
+                    a, b = sorted((anchor, comp._caret))
+                    comp._sel_start, comp._sel_end = a, b
+                    comp._sel_anchor = anchor
+                else:
+                    comp._caret = new_pos
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp._sel_anchor = None
+                comp.render()
+                return True
+
             # Right arrow
             if event.key == pygame.K_RIGHT:
                 ctrl = bool(event.mod & pygame.KMOD_CTRL)
@@ -294,6 +412,22 @@ class InputManager:
 
             # Enter / submit
             if event.key == pygame.K_RETURN:
+                if self.multiline:
+                    ch = '\n'
+                    if comp._sel_start != comp._sel_end:
+                        a, b = sorted((comp._sel_start, comp._sel_end))
+                        comp._value = comp._value[:a] + ch + comp._value[b:]
+                        comp._caret = a + len(ch)
+                        comp._sel_start = comp._sel_end = comp._caret
+                        comp.render()
+                        return True
+
+                    comp._value = comp._value[:comp._caret] + ch + comp._value[comp._caret:]
+                    comp._caret += len(ch)
+                    comp._sel_start = comp._sel_end = comp._caret
+                    comp.render()
+                    return True
+
                 if callable(getattr(comp, 'on_enter', None)):
                     try:
                         comp.on_enter(comp._value)
@@ -310,8 +444,7 @@ class InputManager:
             # duplicate characters (KEYDOWN + TEXTINPUT). Fall back to
             # KEYDOWN insertion when TEXTINPUT is not available.
             if not hasattr(pygame, 'TEXTINPUT'):
-                ch = event.unicode
-                if ch:
+                if ch := event.unicode:
                     if comp._sel_start != comp._sel_end:
                         a, b = sorted((comp._sel_start, comp._sel_end))
                         comp._value = comp._value[:a] + ch + comp._value[b:]
@@ -327,43 +460,107 @@ class InputManager:
 
         # TEXTINPUT (IME)
         if event.type == pygame.TEXTINPUT:
-            txt = getattr(event, 'text', '')
-            if txt:
+            if txt := getattr(event, 'text', ''):
                 if comp._sel_start != comp._sel_end:
                     a, b = sorted((comp._sel_start, comp._sel_end))
                     comp._value = comp._value[:a] + txt + comp._value[b:]
                     comp._caret = a + len(txt)
-                    comp._sel_start = comp._sel_end = comp._caret
                 else:
                     comp._value = comp._value[:comp._caret] + txt + comp._value[comp._caret:]
                     comp._caret += len(txt)
-                    comp._sel_start = comp._sel_end = comp._caret
+                comp._sel_start = comp._sel_end = comp._caret
                 comp.render()
                 return True
 
         # Mouse drag selection
-        if event.type == pygame.MOUSEMOTION:
-            if getattr(comp, '_dragging', False):
-                mx, my = event.pos
+        if event.type == pygame.MOUSEMOTION and getattr(comp, '_dragging', False):
+            mx, my = event.pos
+            ax, ay = comp.absolute_pos
+            rel_x = mx - ax
+            rel_y = my - ay
+            if not isinstance(comp._font, pygame.font.Font):
+                from .text import get_font
+                font = get_font(*comp._font)
+            else:
+                font = comp._font
+            rel_x = max(0, min(rel_x, comp.size[0] - 1))
+            # Map mouse position to caret index; handle multiline consistently
+            if getattr(comp, 'multiline', False):
+                lines = comp._value.split('\n')
+                # Match Field.render constants
+                padding_x = 10
+                padding_y = 8
+                margin = 12
+                line_spacing = 1.2
+                line_h = font.size('T')[1]
+                # content offsets as in Field.render
+                if getattr(comp, '_scroll_y', 0) > 0:
+                    content_offset_y = padding_y - int(getattr(comp, '_scroll_y', 0)) - margin
+                else:
+                    content_offset_y = padding_y
+                if getattr(comp, '_scroll_x', 0) > 0:
+                    content_offset_x = padding_x - int(getattr(comp, '_scroll_x', 0)) - margin
+                else:
+                    content_offset_x = padding_x - int(getattr(comp, '_scroll_x', 0))
+                y_in_text = rel_y - content_offset_y
+                li = int(y_in_text / (line_h * line_spacing)) if line_h > 0 else 0
+                li = max(0, min(li, len(lines) - 1))
+                x_in_line = rel_x - content_offset_x
+                idx_in_line = get_caret_index_at_x(lines[li], font, x_in_line)
+                base = sum(len(l) + 1 for l in lines[:li])
+                idx = max(0, min(base + idx_in_line, len(comp._value)))
+            else:
+                idx = get_caret_index_at_x(comp._value, font, rel_x)
+            comp._sel_end = idx
+            comp._caret = idx
+            comp.render()
+            return True
+
+        if event.type == pygame.MOUSEBUTTONUP and (event.button == 1 and getattr(comp, '_dragging', False)):
+            comp._dragging = False
+            return True
+
+        # Mouse wheel scrolling: vertical scroll by default, horizontal when Shift is held
+        if event.type == getattr(pygame, 'MOUSEWHEEL', None):
+            # Only scroll if mouse is over the component and it is focused
+            try:
+                mx, my = pygame.mouse.get_pos()
                 ax, ay = comp.absolute_pos
                 rel_x = mx - ax
                 rel_y = my - ay
-                if not isinstance(comp._font, pygame.font.Font):
-                    from .text import get_font
-                    font = get_font(*comp._font)
-                else:
-                    font = comp._font
-                rel_x = max(0, min(rel_x, comp.size[0] - 1))
-                idx = get_caret_index_at_x(comp._value, font, rel_x)
-                comp._sel_end = idx
-                comp._caret = idx
-                comp.render()
-                return True
+                if not (0 <= rel_x < comp.size[0] and 0 <= rel_y < comp.size[1]):
+                    return False
+            except Exception:
+                return False
 
-        if event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1 and getattr(comp, '_dragging', False):
-                comp._dragging = False
-                return True
+            # Determine modifier: Shift for horizontal scroll
+            shift = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
+            # Sensitivity: multiply wheel.y by a pixel amount (lines -> px)
+            step = 20
+            if shift:
+                # horizontal scroll
+                new_x = int(getattr(comp, '_scroll_x', 0) - event.y * step)
+                comp._scroll_x = max(0, new_x)
+            else:
+                # vertical scroll
+                new_y = int(getattr(comp, '_scroll_y', 0) - event.y * step)
+                # respect component's max_scroll_y if it exists, otherwise clamp to 0..inf
+                max_y = getattr(comp, '_max_scroll_y', None)
+                if max_y is not None:
+                    comp._scroll_y = max(0, min(new_y, int(max_y)))
+                else:
+                    comp._scroll_y = max(0, new_y)
+            # mark that the user manually scrolled; this should persist until
+            # the user moves the caret or edits text so auto-scroll doesn't override
+            try:
+                comp._user_scrolled = True
+            except Exception:
+                pass
+            try:
+                comp.render()
+            except Exception:
+                pass
+            return True
 
         # TEXTEDITING (IME composition)
         if event.type == getattr(pygame, 'TEXTEDITING', None):
@@ -373,5 +570,3 @@ class InputManager:
 
         return False
 
-
-input_manager = InputManager()

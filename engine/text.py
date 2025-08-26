@@ -25,9 +25,7 @@ SPLIT_TEXT_CACHE: dict = {}
 DRAW_JUSTIFIED_SURF_CACHE: dict = {}
 
 def _font_id_key(font):
-    if isinstance(font, pygame.font.Font):
-        return id(font)
-    return tuple(font)
+    return id(font) if isinstance(font, pygame.font.Font) else tuple(font)
 
 
 # --- Text input helpers: caret measurement, hit-testing, and rendering ---
@@ -44,7 +42,6 @@ def measure_caret_x(text: str, font: pygame.font.Font, index: int) -> int:
     # clamp index
     idx = max(0, min(index, len(text)))
     return font.size(text[:idx])[0]
-
 
 def get_caret_index_at_x(text: str, font: pygame.font.Font, x: int) -> int:
     """Return the caret index corresponding to pixel x within the rendered text.
@@ -63,8 +60,7 @@ def get_caret_index_at_x(text: str, font: pygame.font.Font, x: int) -> int:
         prev_w = w
     return len(text)
 
-
-def render_line_with_caret(surf: pygame.Surface, text: str, caret_index: int, font: pygame.font.Font, color, bg_color, x: int, y: int, caret_color=(255, 255, 255), caret_width=2, caret_visible=True):
+def render_line_with_caret(surf: pygame.Surface, text: str, caret_index: int, font: pygame.font.Font, color, bg_color, x: int, y: int, caret_color=(30, 30, 32), caret_width=2, caret_visible=True):
     """Render a single-line `text` onto `surf` at (x,y) and draw caret at caret_index.
 
     Uses a single font.render for the full line for speed, computes caret x using
@@ -79,39 +75,49 @@ def render_line_with_caret(surf: pygame.Surface, text: str, caret_index: int, fo
         # avoid drawing a caret to prevent spurious geometry.
         if caret_index is None:
             return
-        caret_index = max(0, min(int(caret_index), len(text)))
+        caret_index = max(0, min(caret_index, len(text)))
         cx = x + measure_caret_x(text, font, caret_index)
         ch = font.size(text)[1]
-        caret_rect = pygame.Rect(int(cx), int(y), caret_width, ch)
+        caret_rect = pygame.Rect(int(cx), y, caret_width, ch)
         pygame.draw.rect(surf, caret_color, caret_rect)
 
+def render_selection(surf: pygame.Surface, text: str, sel_start: int, sel_end: int, font: pygame.font.Font, sel_color, x: int, y: int, line_spacing: float = 1.2):
+    """Render selection background between sel_start and sel_end.
 
-def render_selection(surf: pygame.Surface, text: str, sel_start: int, sel_end: int, font: pygame.font.Font, sel_color, x: int, y: int):
-    """Render selection background between sel_start and sel_end (single-line).
-
-    This draws a filled rect behind the selection region; caller should render
-    the text afterwards so text is drawn on top.
+    Supports selections spanning multiple lines (explicit newlines in `text`).
+    Draws one rect per-line for the portion of the selection that falls on
+    that line. `x,y` are the top-left coordinates where the text was drawn.
     """
     if sel_start == sel_end:
         return
     if sel_start > sel_end:
         sel_start, sel_end = sel_end, sel_start
 
-    start_x = x + measure_caret_x(text, font, sel_start)
-    end_x = x + measure_caret_x(text, font, sel_end)
-    h = font.size(text)[1]
-    rect = pygame.Rect(int(start_x), int(y), int(end_x - start_x), h)
-    pygame.draw.rect(surf, sel_color, rect)
-
-# --- end input helpers ---
+    # Split lines and iterate to draw per-line selection rectangles.
+    lines = text.split('\n')
+    base = 0
+    for i, line in enumerate(lines):
+        line_start = base
+        line_end = base + len(line)
+        # selection overlap on this line (exclusive end)
+        a = max(sel_start, line_start)
+        b = min(sel_end, line_end)
+        if a < b:
+            # local indices within this line
+            local_a = a - line_start
+            local_b = b - line_start
+            start_x = x + measure_caret_x(line, font, local_a)
+            end_x = x + measure_caret_x(line, font, local_b)
+            h = font.size(line)[1]
+            y_line = int(y + i * h * line_spacing)
+            rect = pygame.Rect(int(start_x), y_line, int(end_x - start_x), h)
+            pygame.draw.rect(surf, sel_color, rect)
+        # advance base for next line (account for newline char)
+        base = line_end + 1
 
 def _font_cache_key(font, color, bg_color):
     # font may be a pygame.font.Font instance or a tuple accepted by get_font
-    if isinstance(font, pygame.font.Font):
-        font_id = id(font)
-    else:
-        # tuple like (name, size, bold, italic)
-        font_id = tuple(font)
+    font_id = id(font) if isinstance(font, pygame.font.Font) else tuple(font)
     return (font_id, tuple(color) if isinstance(color, (list, tuple)) else color, tuple(bg_color) if isinstance(bg_color, (list, tuple)) else bg_color)
 
 def draw(text, font, color, bg_color=None, width=300, height=200, line_spacing=1.2):
@@ -168,10 +174,7 @@ def draw_justified(text, font, color, bg_color=None, width=300, height=200, line
 
     # Cache the split_text/layout result to avoid recomputing layout every frame
     split_key = (text, _font_id_key(font), width)
-    if CACHE_ENABLED:
-        lines = SPLIT_TEXT_CACHE.get(split_key)
-    else:
-        lines = None
+    lines = SPLIT_TEXT_CACHE.get(split_key) if CACHE_ENABLED else None
     if lines is None:
         lines = split_text(text, font, width)
         if CACHE_ENABLED:
@@ -250,7 +253,7 @@ def draw_justified(text, font, color, bg_color=None, width=300, height=200, line
             # single-word explicit letter_spacings: must render per-character to apply gaps
             x = 0
             gap_idx = 0
-            for idx, ch in enumerate(line):
+            for ch in line:
                 ch_surf = font.render(ch, True, color, bg_color)
                 surf.blit(ch_surf, (x, int(y)))
                 x += ch_surf.get_width()
@@ -428,10 +431,7 @@ def split_text(text: str, font: pygame.font.Font, max_width: int, justify=True) 
             continue
 
         # try adding to current line - test using per-word measurement to avoid miscounting letter spacing across words
-        if line_words:
-            test_words = line_words + [w]
-        else:
-            test_words = [w]
+        test_words = line_words + [w] if line_words else [w]
         if measure_line_words_width(test_words, font) <= max_width:
             line_words.append(w)
             i += 1
@@ -491,10 +491,7 @@ def get_total_size(lines, font, line_spacing) -> tuple[int, int]:
             else:
                 max_w = max(max_w, measure_word_width(line, font))
         elif letter_spacings:
-            # single-word explicit letter_spacings: include default + explicit extras
-            width = 0
-            for ch in line:
-                width += font.size(ch)[0]
+            width = sum(font.size(ch)[0] for ch in line)
             if len(line) >= 2:
                 width += DEFAULT_LETTER_SPACING * (len(line) - 1)
             width += sum(letter_spacings)
@@ -511,9 +508,7 @@ def measure_word_width(word: str, font: pygame.font.Font) -> int:
         return 0
     if len(word) == 1:
         return font.size(word)[0]
-    w = 0
-    for ch in word:
-        w += font.size(ch)[0]
+    w = sum(font.size(ch)[0] for ch in word)
     w += DEFAULT_LETTER_SPACING * (len(word) - 1)
     return w
 

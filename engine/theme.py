@@ -6,66 +6,140 @@ select which theme overrides are active. `current_theme` is the merged
 result of the base defaults plus applied themes (applied in order).
 """
 
-from typing import Any, Optional
+
+from typing import Optional
 
 # Base (light) defaults — every component-default color should exist here
 LIGHT = {
-    'window_bg': (245, 245, 246),
-    'surface_bg': (255, 255, 255),
+    # Window and surfaces — light, soft, not pure-white
+    'window_bg': (242, 247, 250),
+    'surface_bg': (248, 250, 252),
 
     # Field / input
-    'field_bg': (255, 255, 255),
-    'field_text': (28, 28, 30),
-    'field_placeholder': (120, 120, 120),
-    'field_border': (200, 200, 200),
+    'field_bg': (250, 252, 253),
+    'field_text': (26, 30, 34),
+    'field_placeholder': (120, 126, 132),
+    'field_border': (200, 206, 212),
 
     # Buttons / controls
-    'button_bg': (240, 240, 240),
-    'button_bg_hover': (220, 220, 220),
-    'button_text': (28, 28, 30),
-    'button_text_hover': (28, 28, 30),
+    'button_bg': (236, 242, 246),
+    'button_bg_hover': (228, 236, 242),
+    'button_text': (26, 30, 34),
+    'button_text_hover': (20, 24, 28),
 
     # Labels / generic text
-    'label_text': (28, 28, 30),
-    'label_bg': (0, 0, 0, 0),
+    'label_text': (28, 34, 40),
+    'label_bg': None,
 
     # Frames and accents
-    'frame_color': (200, 200, 200),
-    'accent': (80, 150, 255),
+    'frame_color': (190, 196, 202),
+    'accent': (40, 110, 200),
 
     # Selection / caret / composition
-    'selection': (50, 100, 200),
-    'caret': (28, 28, 30),
-    'composition': (80, 80, 80),
+    'selection': (180, 210, 245),
+    'caret': (18, 20, 22),
+    'composition': (100, 106, 112),
 
     # Misc
-    'focus_glow': (80, 150, 255, 24),
-}
+    'focus_glow': (40, 110, 200, 32),
 
+    # Checkbox
+    'checkbox_bg': (236, 242, 246),
+    'checkbox_border': (196, 202, 208),
+    'checkbox_bg_checked': (40, 110, 200),
+    'checkbox_bg_hover': (230, 238, 244),
+    'checkbox_text': (28, 34, 40),
+    'checkbox_text_checked': (40, 110, 200),
+    'checkbox_text_hover': (80, 140, 220),
+    'checkbox_corner_radius': 6,
+    'checkbox_inner': (200, 204, 208),
+    'checkbox_inner_hover': (190, 194, 198),
+    'checkbox_border_checked': (170, 176, 182),
+    'checkbox_inner_border': (170, 176, 182),
+
+    # Toggle
+    'toggle_bg': (216, 222, 228),
+    'toggle_bg_on': (40, 110, 200),
+    'toggle_knob': (255, 255, 255),
+    'toggle_border': (200, 206, 212),
+    'toggle_hover': (208, 216, 230),
+
+    # Dropdown
+    'dropdown_bg': (250, 250, 252),
+    'dropdown_text': (28, 34, 40),
+    'dropdown_border': (200, 206, 212),
+    'dropdown_hover': (236, 242, 246),
+}
 
 # Dark-mode overrides
 DARK = {
     'window_bg': (18, 18, 20),
     'surface_bg': (24, 24, 26),
+
+    # Field
     'field_bg': (30, 30, 34),
     'field_text': (230, 230, 235),
     'field_placeholder': (140, 140, 150),
     'field_border': (70, 70, 78),
-    'accent': (80, 150, 255),
-    'selection': (50, 100, 200),
-    'caret': (230, 230, 235),
-    'composition': (200, 200, 200),
-    'focus_glow': (80, 150, 255, 24),
+
+    # Button
     'button_bg': (36, 36, 38),
     'button_bg_hover': (56, 56, 58),
     'button_text': (230, 230, 235),
     'button_text_hover': (230, 230, 235),
+
+    # Label
     'label_text': (230, 230, 235),
-    'label_bg': (0, 0, 0, 0),
+    'label_bg': None,
+
+    # Frame
     'frame_color': (90, 90, 94),
+    'accent': (80, 150, 255),
+
+    # Selection
+    'selection': (50, 100, 200),
+    'caret': (230, 230, 235),
+    'composition': (200, 200, 200),
+
+    # Misc
+    'focus_glow': (80, 150, 255, 24),
+
+
+    # Checkbox
+    'checkbox_bg': (36, 36, 38),
+    'checkbox_border': (70, 70, 78),
+    'checkbox_bg_checked': (80, 150, 255),
+    'checkbox_bg_hover': (56, 56, 58),
+    'checkbox_text': (230, 230, 235),
+    'checkbox_text_checked': (80, 150, 255),
+    'checkbox_text_hover': (100, 170, 255),
+    'checkbox_corner_radius': 6,
+    'checkbox_inner': (110, 110, 110),
+    'checkbox_inner_hover': (140, 140, 140),
+    'checkbox_border_checked': (90, 90, 94),
+    'checkbox_inner_border': (90, 90, 94),
+
+    # Toggle
+    'toggle_bg': (56, 56, 58),
+    'toggle_bg_on': (80, 150, 255),
+    'toggle_knob': (230, 230, 235),
+    'toggle_border': (70, 70, 78),
+    'toggle_hover': (72, 72, 76),
+
+    # Dropdown
+    'dropdown_bg': (36, 36, 38),
+    'dropdown_text': (230, 230, 235),
+    'dropdown_border': (70, 70, 78),
+    'dropdown_hover': (56, 56, 58),
 }
 
 _current_themes: list[dict] = [LIGHT, DARK]
+
+def swap_theme(window = None):
+    _current_themes.reverse()
+    compute_theme()
+    if window:
+        window.render()
 
 def compute_theme() -> dict[str, tuple[int, ...]]:
     """Merge base LIGHT defaults with any applied themes (in order).
@@ -76,7 +150,7 @@ def compute_theme() -> dict[str, tuple[int, ...]]:
 
     merged = {}
     for current in _current_themes:
-        merged.update(current)
+        merged |= current
 
     current = merged
     return merged

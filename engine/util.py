@@ -21,8 +21,8 @@ def draw_performance_statistics(surface, clock:pygame.time.Clock) -> None:
     pygame.draw.rect(surf, (50, 50, 50, 200), surf.get_rect(), border_top_left_radius=8)
 
     avg = get_average_fps()
-    fps_text = font.render(f'{avg:.2f} fps', True, (255, 255, 255))
-    frame_time_text = font.render(f'({frame_time} ms)', True, (255, 255, 255))
+    fps_text = font.render(f'{avg:.2f} fps', True, (245, 245, 246))
+    frame_time_text = font.render(f'({frame_time} ms)', True, (245, 245, 246))
 
     i = min(1, avg / 2000)
 
