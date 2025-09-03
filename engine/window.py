@@ -31,6 +31,7 @@ class Window:
         
         # High precision timing
         self._last_frame_time = time.perf_counter()
+        self.dt = 0  # Initialize delta time to 0
         
         try:
             # enable key repeat: (delay ms, interval ms)
