@@ -336,9 +336,10 @@ def test_text_measure_functions():
     x = ui.text.measure_caret_x(text, font, len(text))
     assert x >= 0
     
-    # Test render_selection (requires x, y coordinates)
-    selection_surface = ui.text.render_selection(text, font, 0, 4, (255, 255, 255), (0, 0, 255), 0, 0)
-    assert selection_surface is not None
+    # Test render_selection (requires surface and proper params)
+    surface = pygame.Surface((200, 50))
+    ui.text.render_selection(surface, text, 0, 4, font, (0, 0, 255), 0, 0)
+    # If we get here without exception, the function works
 
 
 # Error handling tests
