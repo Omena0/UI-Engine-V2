@@ -1,0 +1,12 @@
+[run]
+omit =
+    tests/*
+    */site-packages/*
+    to_be_imported/*
+    benchmark.py
+    profile_app.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == '__main__':

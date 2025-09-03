@@ -1,4 +1,6 @@
 *.pyc
 __*
-.*
+.venv
+.sourcery.yaml
+.vscode
 bee.txt
