@@ -5,7 +5,8 @@ import pygame
 
 class Toggle(ComponentBase):
     __slots__ = [
-        '_size', '_ov_bg', '_ov_knob', '_value', 'on_change', '_corner_radius', '_ov_bg_on'
+        '_size', '_ov_bg', '_ov_knob', '_value', 'on_change', '_corner_radius', '_ov_bg_on',
+        '_composite_surface', '_composite_dirty', '_last_child_count'
     ]
 
     def __init__(
@@ -59,10 +60,12 @@ class Toggle(ComponentBase):
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if self._hovered(event.pos)[0]:
                 self._toggle()
+                return True  # Consume the event
         elif event.type == pygame.KEYDOWN:
             # allow space/enter to toggle when focused
             if getattr(self, '_was_hovered', False) and event.key in (pygame.K_SPACE, pygame.K_RETURN):
                 self._toggle()
+                return True  # Consume the event
 
         return False
 
@@ -76,8 +79,6 @@ class Toggle(ComponentBase):
         self.render()
 
     def render(self) -> None:
-        self.surface.fill((0, 0, 0, 0))
-
         hovered = self._hovered()[0]
 
         bg = self.bg_on if self._value else self.bg
@@ -87,27 +88,29 @@ class Toggle(ComponentBase):
             if hover_col is not None and not self._value:
                 bg = hover_col
 
-        # draw track
-        try:
-            pygame.draw.rect(self.surface, bg, (0, 0, *self.size), border_radius=self._corner_radius)
-        except Exception:
-            pygame.draw.rect(self.surface, bg, (0, 0, *self.size))
+        # Simplified: draw track and border in one call when possible
+        border_col = theme.get('toggle_border')
+        if border_col is not None:
+            # Draw border first, then fill with background (one fewer draw call when border exists)
+            try:
+                pygame.draw.rect(self.surface, border_col, (0, 0, *self.size), border_radius=self._corner_radius)
+                pygame.draw.rect(self.surface, bg, (1, 1, self.size[0]-2, self.size[1]-2), border_radius=self._corner_radius)
+            except Exception:
+                pygame.draw.rect(self.surface, border_col, (0, 0, *self.size))
+                pygame.draw.rect(self.surface, bg, (1, 1, self.size[0]-2, self.size[1]-2))
+        else:
+            # No border - just draw background
+            try:
+                pygame.draw.rect(self.surface, bg, (0, 0, *self.size), border_radius=self._corner_radius)
+            except Exception:
+                pygame.draw.rect(self.surface, bg, (0, 0, *self.size))
 
         # knob
         kw = int(self.size[1] - 6)
-        # knob x position: left when off, right when on
         pad = 3
         kx = self.size[0] - kw - pad if self._value else pad
         kc = self.knob_color
         pygame.draw.ellipse(self.surface, kc, (kx, pad, kw, kw))
-
-        # border (subtle)
-        border_col = theme.get('toggle_border')
-        if border_col is not None:
-            try:
-                pygame.draw.rect(self.surface, border_col, (0, 0, *self.size), width=1, border_radius=self._corner_radius)
-            except Exception:
-                pygame.draw.rect(self.surface, border_col, (0, 0, *self.size), width=1)
 
         # finalize blits
         self.blits = [(self.surface, self.absolute_pos)]

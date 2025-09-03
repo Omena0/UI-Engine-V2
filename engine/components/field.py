@@ -12,7 +12,8 @@ class Field(ComponentBase):
         '_sel_start', '_sel_end', '_placeholder', 'on_enter',
         '_caret_visible', '_last_blink', '_dragging', '_composition',
         '_focused', '_scroll_x', '_scroll_y', '_sel_anchor', '_user_scrolled',
-    'input_manager', '_prev_caret', '_prev_value', '_max_scroll_y'
+        'input_manager', '_prev_caret', '_prev_value', '_max_scroll_y',
+        '_composite_surface', '_composite_dirty', '_last_child_count'
     ]
 
     def __init__(
@@ -123,9 +124,8 @@ class Field(ComponentBase):
 
     def render(self):
         surf = self.surface
-        surf.fill((0, 0, 0, 0))
 
-        # modern visual style: subtle shadow, elevated background, focused accent
+        # Ultra-simplified field styling for performance
         radius = 8
         padding_x = 10
         padding_y = 8
@@ -135,23 +135,20 @@ class Field(ComponentBase):
         border_col = theme.get('field_border')
         accent = theme.get('accent')
 
-        pygame.draw.rect(surf, bg_color_draw, (0, 0, *self.size), border_radius=radius)
-
-        # border: accent when focused
         focused = getattr(self, '_focused', False)
-        if focused:
-            border_col = accent if 'accent' in locals() else (80, 150, 255)
-            border_width = 2
-        else:
-            border_col = border_col if 'border_col' in locals() else (200, 200, 200)
-            border_width = 1
-        pygame.draw.rect(surf, border_col, (0, 0, *self.size), width=border_width, border_radius=radius)
 
+        # Single draw approach: just background with colored border based on focus
         if focused:
-            glow = pygame.Surface((self.size[0]-6, self.size[1]-6), pygame.SRCALPHA)
-            glow.fill((0, 0, 0, 0))
-            pygame.draw.rect(glow, (80, 150, 255, 24), (0, 0, glow.get_width(), glow.get_height()), border_radius=radius)
-            surf.blit(glow, (3, 3))
+            final_border = accent or (80, 150, 255)
+        else:
+            final_border = border_col or (200, 200, 200)
+
+        # One draw for border, one for background
+        pygame.draw.rect(surf, final_border, (0, 0, *self.size), border_radius=radius)
+        if focused:
+            pygame.draw.rect(surf, bg_color_draw, (2, 2, self.size[0]-4, self.size[1]-4), border_radius=max(0, radius-2))
+        else:
+            pygame.draw.rect(surf, bg_color_draw, (1, 1, self.size[0]-2, self.size[1]-2), border_radius=max(0, radius-1))
 
         if not isinstance(self._font, pygame.font.Font):
             font = get_font(*self._font)

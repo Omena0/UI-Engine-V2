@@ -1,12 +1,14 @@
 from . import util
 import pygame
+import time
 
 
 class Window:
     __slots__ = [
         "_surface", "children", "pos", "clock", "dt",
         "_size", "_event_handlers", "blits", "frame",
-        "debug", "mode", "_overlay_focus", "_next_gid"
+        "debug", "mode", "_overlay_focus", "_next_gid",
+        "_last_frame_time"
     ]
 
     def __init__(self, size = (800, 600)) -> None:
@@ -26,6 +28,10 @@ class Window:
         # blits will be a list of layers, each layer is a list of (surface, pos) tuples
         # layer 0 is the base layer (children), subsequent layers are overlays
         self.blits = []
+        
+        # High precision timing
+        self._last_frame_time = time.perf_counter()
+        
         try:
             # enable key repeat: (delay ms, interval ms)
             pygame.key.set_repeat(400, 35)
@@ -117,31 +123,35 @@ class Window:
         # expose as window.blits (list of lists)
         self.blits = layers
 
-        # Flatten for pygame blit call
+        # Build flat list for pygame-ce fblits with viewport culling
         flat = []
+        window_rect = pygame.Rect(0, 0, *self.size)
+        
         for layer in layers:
-            # overlay entries may be (surface, pos) or (gid, surface, pos)
             for entry in layer:
                 if not entry:
                     continue
+                    
+                surf, pos = None, None
                 if isinstance(entry, tuple) and len(entry) == 2:
-                    flat.append(entry)
+                    surf, pos = entry
                 elif isinstance(entry, tuple) and len(entry) == 3:
                     # (gid, surface, pos)
                     _, surf, pos = entry
-                    flat.append((surf, pos))
                 else:
-                    # unknown format, try to append directly
-                    try:
-                        flat.append(entry)
-                    except Exception:
-                        pass
+                    continue
+                
+                # Viewport culling - only render surfaces that intersect with window
+                if surf and pos:
+                    surf_rect = pygame.Rect(pos[0], pos[1], surf.get_width(), surf.get_height())
+                    if window_rect.colliderect(surf_rect):
+                        flat.append((surf, pos))
 
-        # batch blit
+        # Direct pygame-ce fblits for maximum performance
         if flat:
-            self.surface.blits(flat)
+            self.surface.fblits(flat)
 
-        util.draw_performance_statistics(self.surface, self.clock)
+        util.draw_performance_statistics(self.surface, self.dt)
 
         pygame.display.flip()
 
@@ -180,13 +190,15 @@ class Window:
 
     def mainloop(self) -> None:
         self.render()
-        if self.debug:
-            # Window.every was implemented in un-pushed commit
-            # self.every(100)(lambda: util.draw_performance_statistics(self.surface, self.clock))
-            ...
 
         while True:
-            self.dt = self.clock.tick()
+            # Calculate high precision deltatime
+            current_time = time.perf_counter()
+            self.dt = (current_time - self._last_frame_time) * 1000
+            self._last_frame_time = current_time
+
+            # Still use pygame clock for FPS calculation
+            self.clock.tick()
             util.set_average_fps(self.clock.get_fps())
 
             for event in pygame.event.get():
@@ -196,9 +208,11 @@ class Window:
 
                 self._event(event)
 
-            # Always render each loop so time-based visuals (caret blink, IME
-            # composition underline, animations) update. The 'mode' flag can
-            # still be used to reduce work if desired.
-            self.render()
+            # Only render every frame if in immediate mode
+            # You should never enable this unless something breaks.
+            # Immediate mode will give 10x worse performance.
+            if self.mode == 'immediate':
+                self.render()
 
             self.draw()
+

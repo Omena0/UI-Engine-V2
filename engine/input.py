@@ -1,6 +1,7 @@
 import pygame
 from typing import Any
 from .text import get_caret_index_at_x
+from .window import Window
 import clipboard
 
 def _prev_word_index(s: str, idx: int) -> int:
@@ -68,18 +69,25 @@ class InputManager:
             rel_x = mx - ax
             rel_y = my - ay
             if 0 <= rel_x < comp.size[0] and 0 <= rel_y < comp.size[1]:
-                # manage focus: clear previous focus, set current
+                # manage focus: use Window._input_focus so focus is shared across components
                 try:
-                    if self.last_focus is not None and self.last_focus is not comp:
-                        setattr(self.last_focus, '_focused', False)
-                        try:
-                            self.last_focus.render()
-                        except Exception:
-                            pass
-                    setattr(comp, '_focused', True)
-                    self.last_focus = comp
+                    # find window for this component
+                    w = getattr(comp, 'window', None)
+                    if w is None:
+                        w = getattr(comp, 'parent', None)
+                        while w is not None and not isinstance(w, Window):
+                            w = getattr(w, 'parent', None)
+                    
+                    # Use the window's set_input_focus method to manage focus properly
+                    if isinstance(w, Window):
+                        w.set_input_focus(comp)
+                    else:
+                        # Fallback if we can't find the window
+                        setattr(comp, '_focused', True)
                 except Exception:
-                    pass
+                    # Fallback if anything goes wrong
+                    setattr(comp, '_focused', True)
+
                 if not isinstance(comp._font, pygame.font.Font):
                     from .text import get_font
                     font = get_font(*comp._font)
@@ -128,7 +136,7 @@ class InputManager:
                     while start > 0 and not s[start - 1].isspace():
                         start -= 1
                     end = idx
-                    
+
                     while end < len(s) and not s[end].isspace():
                         end += 1
                     comp._sel_start, comp._sel_end = start, end
@@ -173,6 +181,10 @@ class InputManager:
 
         # Keyboard handling
         if event.type == pygame.KEYDOWN:
+            # Guard clause: only handle keyboard events if this field is focused
+            if not getattr(comp, '_focused', False):
+                return False
+                
             # Select all (Ctrl+A)
             if event.key == pygame.K_a and (event.mod & pygame.KMOD_CTRL):
                 comp._sel_start = 0
@@ -460,6 +472,10 @@ class InputManager:
 
         # TEXTINPUT (IME)
         if event.type == pygame.TEXTINPUT:
+            # Guard clause: only handle text input if this field is focused
+            if not getattr(comp, '_focused', False):
+                return False
+                
             if txt := getattr(event, 'text', ''):
                 if comp._sel_start != comp._sel_end:
                     a, b = sorted((comp._sel_start, comp._sel_end))

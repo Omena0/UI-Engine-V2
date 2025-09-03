@@ -4,7 +4,7 @@ from .. import text
 
 
 class Label(ComponentBase):
-    __slots__ = ['_text', '_font', '_ov_color', '_ov_bg_color', '_size', '_line_spacing', '_wrap']
+    __slots__ = ['_text', '_font', '_ov_color', '_ov_bg_color', '_size', '_line_spacing', '_wrap', '_composite_surface', '_composite_dirty', '_last_child_count']
 
     def __init__(
         self, parent, pos, text, font,

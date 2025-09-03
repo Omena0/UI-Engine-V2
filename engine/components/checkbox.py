@@ -4,6 +4,15 @@ from .. import theme
 import pygame
 
 class CheckBox(ComponentBase):
+    __slots__ = [
+        "_size", "_text", "_font",
+        "_ov_bg_color", "_ov_border_color", "_ov_bg_checked_color", "_ov_bg_hovered_color",
+        "_ov_text_color", "_ov_text_checked_color", "_ov_text_hovered_color",
+        "_ov_corner_radius",
+        "_checked", "on_change",
+        "_composite_surface", "_composite_dirty", "_last_child_count"
+    ]
+
     def __init__(
             self, parent, pos,
             size = (50,50),
@@ -104,11 +113,12 @@ class CheckBox(ComponentBase):
                 # emit event for listeners
                 self.emit('change', self._checked)
                 self.render()
+                return True  # Consume the event
 
         return False
 
     def render(self):
-        self.surface.fill((0, 0, 0, 0))
+        # Skip transparent fill - background rect will overwrite
 
         hovered = self._hovered()[0]
 

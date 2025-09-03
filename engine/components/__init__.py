@@ -10,4 +10,5 @@ from .radio import *
 from .progress import *
 from .iconbutton import *
 from .segmented import *
+from .tabframe import *
 

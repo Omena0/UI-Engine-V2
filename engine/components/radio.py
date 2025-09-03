@@ -7,6 +7,9 @@ class Radio(ComponentBase):
     # class-level group registry: list of lists, each index is a group
     _groups: list[list] = []
 
+    # instance slots to match ComponentBase pattern and reduce per-instance memory
+    __slots__ = ["_size", "_checked", "on_change", "_gid", "_composite_surface", "_composite_dirty", "_last_child_count"]
+
     def __init__(self, parent, pos, size=(18, 18), checked=False, group_gid: int | None = None, on_change=None):
         self._size = size
         self._checked = checked
@@ -67,7 +70,8 @@ class Radio(ComponentBase):
     def _event(self, event: pygame.event.Event) -> bool:
         if event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
-            if self.surface.get_rect().move(*self.absolute_pos).collidepoint((mx, my)):
+            rect = pygame.Rect(0, 0, *self.size).move(*self.absolute_pos)
+            if rect.collidepoint((mx, my)):
                 self._select_self_and_unselect_others()
                 return True
         return super()._event(event)
@@ -78,8 +82,7 @@ class Radio(ComponentBase):
         border = theme.get('radio_border')
         dot = theme.get('radio_dot')
 
-        self.surface.fill((0, 0, 0, 0))
-        rect = self.surface.get_rect()
+        rect = pygame.Rect(0, 0, *self.size)
 
         try:
             pygame.draw.ellipse(self.surface, bg, rect)
