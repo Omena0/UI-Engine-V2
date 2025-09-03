@@ -14,7 +14,9 @@ jobs:
   ensure-tag:
     runs-on: ubuntu-latest
     outputs:
-      should_build: ${{ steps.detect.outputs.should_build }}
+      should_build: ${{ steps.pypi_check.outputs.should_build }}
+      version_exists: ${{ steps.pypi_check.outputs.version_exists }}
+      candidate_version: ${{ steps.pypi_check.outputs.version }}
       # ui_engine_version and release_display_name are computed in the build job
       # to keep version logic centralized in scripts/get_version.py
     # This job needs write permissions to push tags back to the repository
@@ -87,21 +89,62 @@ jobs:
             exit 0
           fi
           FOUND=0
+          CANDIDATE=""
           for commit in $(git rev-list --max-count=200 HEAD); do
             msg=$(git log -1 --pretty=%B "$commit" | sed -n '1p' | tr -d '\r')
             if echo "$msg" | grep -q "-"; then
               candidate=$(echo "$msg" | cut -d'-' -f1 | tr -d '[:space:]')
               if echo "$candidate" | grep -E -q '^[0-9]+[A-Za-z]?$'; then
                 FOUND=1
+                CANDIDATE="$candidate"
                 break
               fi
             fi
           done
           if [ "$FOUND" -eq 1 ]; then
+            echo "candidate=$CANDIDATE" >> "$GITHUB_OUTPUT"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Check if version already exists on PyPI
+        id: pypi_check
+        if: steps.detect.outputs.should_build == 'true'
+        run: |
+          set -euo pipefail
+          
+          # Convert candidate to version number using same logic as get_version.py
+          CANDIDATE="${{ steps.detect.outputs.candidate }}"
+          
+          # Extract major version (digits)
+          MAJOR=$(echo "$CANDIDATE" | sed -E 's/([0-9]+).*/\1/')
+          
+          # Extract letter and convert to minor version (A=0, B=1, etc.)
+          LETTER=$(echo "$CANDIDATE" | sed -E 's/[0-9]+([A-Za-z])?/\1/')
+          if [ -n "$LETTER" ]; then
+            # Convert letter to number: A=0, B=1, C=2, etc.
+            MINOR=$(python3 -c "print(ord('$LETTER'.upper()) - ord('A'))")
+          else
+            MINOR=0
+          fi
+          
+          VERSION="${MAJOR}.${MINOR}.0"
+          echo "Checking PyPI for version: $VERSION"
+          
+          # Query PyPI for the version; 200 means it already exists
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/ui-engine/$VERSION/json" || echo "000")
+          
+          if [ "$STATUS" = "200" ]; then
+            echo "Version $VERSION already exists on PyPI; skipping build"
+            echo "version_exists=true" >> "$GITHUB_OUTPUT"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version $VERSION does not exist on PyPI; proceeding with build"
+            echo "version_exists=false" >> "$GITHUB_OUTPUT"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # The numeric package version is determined in the build job using
       # scripts/get_version.py; removing the set_version step keeps the
@@ -112,7 +155,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - ensure-tag
-    if: needs.ensure-tag.outputs.should_build == 'true'
+    if: needs.ensure-tag.outputs.should_build == 'true' && needs.ensure-tag.outputs.version_exists == 'false'
     outputs:
       ui_engine_version: ${{ steps.get_version.outputs.ui_engine_version }}
       release_display_name: ${{ steps.get_version.outputs.release_display_name }}
@@ -123,6 +166,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
+
+      - name: Log build reason
+        run: |
+          echo "Building because:"
+          echo "  - Version candidate found: ${{ needs.ensure-tag.outputs.candidate_version }}"
+          echo "  - Version does not exist on PyPI"
+          echo "  - Proceeding with build and publish"
 
       - name: Determine package version
         id: get_version
@@ -161,8 +211,9 @@ jobs:
   pypi-publish:
     runs-on: ubuntu-latest
     needs:
+      - ensure-tag
       - build
-    if: needs.build.result == 'success' && needs.ensure-tag.outputs.should_build == 'true'
+    if: needs.build.result == 'success' && needs.ensure-tag.outputs.version_exists == 'false'
 
     # Dedicated environments with protections for publishing are strongly recommended.
     # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
