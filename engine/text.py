@@ -4,6 +4,9 @@ fontCache = {}
 def get_font(font_name, size, bold=False, italic=False) -> pygame.font.Font:
     key = (font_name, size, bold, italic)
     if key not in fontCache:
+        # Ensure font module is initialized
+        if not pygame.font.get_init():
+            pygame.font.init()
         font = pygame.font.SysFont(font_name, size, bold=bold, italic=italic)
         fontCache[key] = font
     return fontCache[key]
