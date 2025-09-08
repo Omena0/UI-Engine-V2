@@ -37,6 +37,7 @@ def cached_render(font, text, color):
     return _text_cache[cache_key]
 
 def draw_performance_statistics(surface, dt) -> None:
+    # sourcery skip: extract-method
     global _cached_stats_surface, _last_stats_update
 
     current_time = pygame.time.get_ticks()

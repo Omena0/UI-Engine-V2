@@ -80,8 +80,7 @@ def _map_candidate_to_version(candidate):
     return candidate, f"{major}.{minor}.0"
 
 if not version:
-    cand = _candidate_from_commit_messages()
-    if cand:
+    if cand := _candidate_from_commit_messages():
         disp, num = _map_candidate_to_version(cand)
         version = num
         if not display_name:
