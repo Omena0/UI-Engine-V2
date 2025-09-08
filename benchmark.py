@@ -64,6 +64,8 @@ def benchmark_raw_pygame():
 
 def benchmark_ui_engine():
     """Benchmark the UI engine"""
+    # Initialize pygame first to avoid font issues
+    pygame.init()
     print("Benchmarking UI engine...")
     
     window = ui.Window((800, 600))
@@ -86,11 +88,13 @@ def benchmark_ui_engine():
         # Handle quit events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                return
+                break
     
     fps = frame_count / test_duration
     print(f"UI Engine: {fps:.1f} FPS")
+    
+    # Clean up display without quitting pygame to avoid font issues
+    pygame.display.quit()
 
 def benchmark_surface_creation():
     """Benchmark surface creation overhead"""
