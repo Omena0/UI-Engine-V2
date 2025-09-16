@@ -11,4 +11,6 @@ from .progress import *
 from .iconbutton import *
 from .segmented import *
 from .tabframe import *
+from .image import *
+from .childwindow import *
 

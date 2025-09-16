@@ -12,7 +12,7 @@ class ComponentBase:
         self.parent = parent
         self._surface = None
         self._pos = pos
-        
+
         # initialize _size: if provided, use it; otherwise default to parent's remaining space
         if size is not None:
             self._size = size
@@ -181,7 +181,15 @@ class ComponentBase:
 
     @property
     def absolute_pos(self) -> tuple[int, int]:
-        return (self.pos[0] + self.parent.pos[0], self.pos[1] + self.parent.pos[1])
+        """Calculate absolute position by traversing up the parent chain."""
+        x, y = self.pos
+        parent = self.parent
+        while hasattr(parent, 'pos') and not isinstance(parent, type(self.window)):
+            parent_pos = parent.pos
+            x += parent_pos[0]
+            y += parent_pos[1]
+            parent = parent.parent
+        return (x, y)
 
     # Placeholders, will be overwritten
     def render(self) -> None:

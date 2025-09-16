@@ -1,6 +1,6 @@
 import pygame
 from typing import Any
-from .text import get_caret_index_at_x
+from .text import _get_caret_index_at_x
 from .window import Window
 import clipboard
 
@@ -124,12 +124,12 @@ class InputManager:
                         else:
                             content_offset_x = padding_x - int(getattr(comp, '_scroll_x', 0))
                         x_in_line = rel_x - content_offset_x
-                        idx_in_line = get_caret_index_at_x(line_text, font, x_in_line)
+                        idx_in_line = _get_caret_index_at_x(line_text, font, x_in_line)
                         # map to overall index
                         base = sum(len(l) + 1 for l in lines[:li])
                         idx = max(0, min(base + idx_in_line, len(s)))
                     else:
-                        idx = get_caret_index_at_x(s, font, rel_x)
+                        idx = _get_caret_index_at_x(s, font, rel_x)
                     if idx > 0 and idx == len(s):
                         idx -= 1
                     start = idx
@@ -168,11 +168,11 @@ class InputManager:
                     else:
                         content_offset_x = padding_x - int(getattr(comp, '_scroll_x', 0))
                     x_in_line = rel_x - content_offset_x
-                    idx_in_line = get_caret_index_at_x(lines[li], font, x_in_line)
+                    idx_in_line = _get_caret_index_at_x(lines[li], font, x_in_line)
                     base = sum(len(l) + 1 for l in lines[:li])
                     comp._caret = max(0, min(base + idx_in_line, len(comp._value)))
                 else:
-                    comp._caret = get_caret_index_at_x(comp._value, font, rel_x)
+                    comp._caret = _get_caret_index_at_x(comp._value, font, rel_x)
                 comp._sel_start = comp._sel_end = comp._caret
                 # set the selection anchor at the caret when starting a drag/click
                 comp._sel_anchor = comp._caret
@@ -522,11 +522,11 @@ class InputManager:
                 li = int(y_in_text / (line_h * line_spacing)) if line_h > 0 else 0
                 li = max(0, min(li, len(lines) - 1))
                 x_in_line = rel_x - content_offset_x
-                idx_in_line = get_caret_index_at_x(lines[li], font, x_in_line)
+                idx_in_line = _get_caret_index_at_x(lines[li], font, x_in_line)
                 base = sum(len(l) + 1 for l in lines[:li])
                 idx = max(0, min(base + idx_in_line, len(comp._value)))
             else:
-                idx = get_caret_index_at_x(comp._value, font, rel_x)
+                idx = _get_caret_index_at_x(comp._value, font, rel_x)
             comp._sel_end = idx
             comp._caret = idx
             comp.render()

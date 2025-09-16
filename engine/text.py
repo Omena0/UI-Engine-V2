@@ -29,7 +29,7 @@ def _font_id_key(font):
 
 
 # --- Text input helpers: caret measurement, hit-testing, and rendering ---
-def measure_caret_x(text: str, font: pygame.font.Font, index: int) -> int:
+def _measure_caret_x(text: str, font: pygame.font.Font, index: int) -> int:
     """Return x offset in pixels of caret positioned at `index` in `text`.
 
     Index 0 -> before first char. Index == len(text) -> after last char.
@@ -43,7 +43,7 @@ def measure_caret_x(text: str, font: pygame.font.Font, index: int) -> int:
     idx = max(0, min(index, len(text)))
     return font.size(text[:idx])[0]
 
-def get_caret_index_at_x(text: str, font: pygame.font.Font, x: int) -> int:
+def _get_caret_index_at_x(text: str, font: pygame.font.Font, x: int) -> int:
     """Return the caret index corresponding to pixel x within the rendered text.
 
     Chooses the closest caret position between characters.
@@ -60,7 +60,7 @@ def get_caret_index_at_x(text: str, font: pygame.font.Font, x: int) -> int:
         prev_w = w
     return len(text)
 
-def render_line_with_caret(surf: pygame.Surface, text: str, caret_index: int, font: pygame.font.Font, color, bg_color, x: int, y: int, caret_color=(30, 30, 32), caret_width=2, caret_visible=True):
+def _render_line_with_caret(surf: pygame.Surface, text: str, caret_index: int, font: pygame.font.Font, color, bg_color, x: int, y: int, caret_color=(30, 30, 32), caret_width=2, caret_visible=True):
     """Render a single-line `text` onto `surf` at (x,y) and draw caret at caret_index.
 
     Uses a single font.render for the full line for speed, computes caret x using
@@ -81,7 +81,7 @@ def render_line_with_caret(surf: pygame.Surface, text: str, caret_index: int, fo
         caret_rect = pygame.Rect(int(cx), y, caret_width, ch)
         pygame.draw.rect(surf, caret_color, caret_rect)
 
-def render_selection(surf: pygame.Surface, text: str, sel_start: int, sel_end: int, font: pygame.font.Font, sel_color, x: int, y: int, line_spacing: float = 1.2):
+def _render_selection(surf: pygame.Surface, text: str, sel_start: int, sel_end: int, font: pygame.font.Font, sel_color, x: int, y: int, line_spacing: float = 1.2):
     """Render selection background between sel_start and sel_end.
 
     Supports selections spanning multiple lines (explicit newlines in `text`).

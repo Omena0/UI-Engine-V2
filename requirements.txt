@@ -3,3 +3,4 @@ pygame-ce
 setuptools
 pytest
 pytest-coverage
+pillow

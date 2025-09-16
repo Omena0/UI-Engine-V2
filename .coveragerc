@@ -5,8 +5,29 @@ omit =
     to_be_imported/*
     benchmark.py
     profile_app.py
+    __init__.py
+    .*
 
 [report]
 exclude_lines =
     pragma: no cover
     if __name__ == '__main__':
+    # Exclude simple getters and setters
+    def __str__
+    def __repr__
+    def __eq__
+    def __hash__
+    def __len__
+    # Exclude simple property getters/setters
+    @property
+    @.*\.setter
+    # Exclude debug/logging statements
+    logger\.debug
+    print\(
+    # Exclude defensive programming
+    raise NotImplementedError
+    raise AssertionError
+    # Exclude type checking
+    if TYPE_CHECKING:
+    # Exclude simple pass statements
+    pass

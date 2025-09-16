@@ -1,4 +1,4 @@
-from ..text import get_font, draw, render_selection, measure_caret_x
+from ..text import get_font, draw, _render_selection, _measure_caret_x
 from ..input import InputManager
 from .base import ComponentBase
 from .. import theme
@@ -207,12 +207,12 @@ class Field(ComponentBase):
                 line_index = len(lines) - 1
                 line_text = lines[-1]
                 col = len(line_text)
-            caret_x = measure_caret_x(line_text, font, col)
+            caret_x = _measure_caret_x(line_text, font, col)
             # compute caret position (line/column) and update horizontal scroll so caret is visible
             line_spacing = 1.2
             caret_y = int(line_index * font.size(line_text)[1] * line_spacing)
         else:
-            caret_x = measure_caret_x(text, font, self._caret)
+            caret_x = _measure_caret_x(text, font, self._caret)
             caret_y = 0
 
         content_width = self.size[0] - padding_x * 2
@@ -331,7 +331,7 @@ class Field(ComponentBase):
 
         # draw selection first using content offsets
         if self._sel_start != self._sel_end:
-            render_selection(surf, text, self._sel_start, self._sel_end, font, (50, 100, 200), content_offset_x, content_offset_y, line_spacing=1.2)
+            _render_selection(surf, text, self._sel_start, self._sel_end, font, (50, 100, 200), content_offset_x, content_offset_y, line_spacing=1.2)
 
         surf.blit(text_surf, (content_offset_x, content_offset_y))
 
@@ -343,7 +343,7 @@ class Field(ComponentBase):
                 caret_rect = pygame.Rect(int(content_offset_x + caret_x), int(content_offset_y + caret_y), 2, ch)
             else:
                 ci = max(0, min(self._caret, len(text)))
-                cx = measure_caret_x(text, font, ci)
+                cx = _measure_caret_x(text, font, ci)
                 ch = font.size(text)[1]
                 caret_rect = pygame.Rect(int(content_offset_x + cx), int(content_offset_y), 2, ch)
             pygame.draw.rect(surf, caret_color, caret_rect)
@@ -367,12 +367,12 @@ class Field(ComponentBase):
                     li = len(lines) - 1
                     line_text = lines[-1]
                     col = len(line_text)
-                cx = measure_caret_x(line_text, font, col)
+                cx = _measure_caret_x(line_text, font, col)
                 ly = int(li * font.size(line_text)[1] * 1.2)
                 surf.blit(comp_surf, (int(content_offset_x + cx), int(content_offset_y + ly)))
                 underline_rect = pygame.Rect(int(content_offset_x + cx), int(content_offset_y + ly + font.size(line_text)[1] - 2), comp_surf.get_width(), 2)
             else:
-                cx = measure_caret_x(text, font, self._caret)
+                cx = _measure_caret_x(text, font, self._caret)
                 surf.blit(comp_surf, (int(content_offset_x + cx), int(content_offset_y)))
                 underline_rect = pygame.Rect(int(content_offset_x + cx), int(content_offset_y + font.size(text)[1] - 2), comp_surf.get_width(), 2)
             pygame.draw.rect(surf, (80, 80, 80), underline_rect)

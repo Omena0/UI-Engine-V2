@@ -12,10 +12,18 @@ import pygame
 import engine as ui
 
 
+def ensure_pygame_ready():
+    """Ensure pygame and font module are properly initialized."""
+    if not pygame.get_init():
+        pygame.init()
+    if not pygame.font.get_init():
+        pygame.font.init()
+
+
 def test_basic_ui_workflow():
     """Test a basic UI workflow with multiple components."""
     # Initialize pygame without display for testing
-    pygame.init()
+    ensure_pygame_ready()
     
     try:
         # Create window
@@ -50,7 +58,7 @@ def test_basic_ui_workflow():
 
 def test_performance_benchmark():
     """Basic performance test to ensure we're not regressing."""
-    pygame.init()
+    ensure_pygame_ready()
     
     try:
         window = ui.Window((800, 600))
