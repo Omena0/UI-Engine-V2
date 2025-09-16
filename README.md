@@ -1,7 +1,7 @@
 
 # UI-Engine-V2
 
-[![Build](https://github.com/Omena0/UI-Engine-V2/actions/workflows/publish.yml/badge.svg?event=push)](https://github.com/Omena0/UI-Engine-V2/actions/workflows/publish.yml)
+[![Build](https://github.com/Omena0/UI-Engine-V2/actions/workflows/publish.yml/badge.svg)](https://github.com/Omena0/UI-Engine-V2/actions/workflows/publish.yml)
 [![Tests](https://github.com/Omena0/UI-Engine-V2/actions/workflows/pytest.yml/badge.svg?branch=main)](https://github.com/Omena0/UI-Engine-V2/actions/workflows/pytest.yml)
 [![Coverage](https://codecov.io/gh/Omena0/UI-Engine-V2/branch/main/graph/badge.svg)](https://codecov.io/gh/Omena0/UI-Engine-V2)
 
