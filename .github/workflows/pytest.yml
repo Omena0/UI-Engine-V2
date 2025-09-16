@@ -5,6 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  # Allow manual triggering of tests
+  workflow_dispatch:
 
 jobs:
   test:
@@ -12,25 +14,85 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history to enable change detection
+
+    - name: Check for Python file changes
+      id: changes
+      run: |
+        set -euo pipefail
+        
+        # For manual workflow dispatch, always run tests
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "Manual trigger detected - running tests"
+          echo "run_tests=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        
+        # For push events, check against previous commit
+        if [ "${{ github.event_name }}" = "push" ]; then
+          # Check if any Python files changed in the last commit
+          if git diff --name-only HEAD~1 HEAD | grep -E '\.(py)$' > /dev/null; then
+            echo "Python files changed in push - running tests"
+            echo "run_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Python files changed in push - skipping tests"
+            echo "run_tests=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+        fi
+        
+        # For pull requests, check against target branch
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          # Get the base branch (usually main)
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          
+          # Check if any Python files changed between base and current HEAD
+          if git diff --name-only "$BASE_SHA"...HEAD | grep -E '\.(py)$' > /dev/null; then
+            echo "Python files changed in PR - running tests"
+            echo "run_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Python files changed in PR - skipping tests"
+            echo "run_tests=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+        fi
+        
+        # Default fallback - run tests
+        echo "Unable to determine change scope - running tests as fallback"
+        echo "run_tests=true" >> "$GITHUB_OUTPUT"
 
     - name: Set up Python
+      if: steps.changes.outputs.run_tests == 'true'
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
+    - name: Cache pip dependencies
+      if: steps.changes.outputs.run_tests == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
     - name: Install dependencies
+      if: steps.changes.outputs.run_tests == 'true'
       run: |
         python -m pip install --upgrade pip
         pip install pytest coverage codecov
         pip install -r requirements.txt
 
     - name: Run tests with coverage
+      if: steps.changes.outputs.run_tests == 'true'
       run: |
         python -m coverage run -m pytest
         python -m coverage xml -o coverage.xml
         python -m coverage report -m
 
     - name: Upload coverage to Codecov
+      if: steps.changes.outputs.run_tests == 'true'
       uses: codecov/codecov-action@v4
       with:
         # Upload the generated coverage.xml. For public repos a token is
@@ -43,7 +105,13 @@ jobs:
         fail_ci_if_error: false
 
     - name: Show coverage.xml (first 40 lines)  # helps debug Codecov uploads
-      if: always()
+      if: always() && steps.changes.outputs.run_tests == 'true'
       run: |
         echo '--- coverage.xml (preview) ---'
         head -n 40 coverage.xml || true
+
+    - name: Tests skipped
+      if: steps.changes.outputs.run_tests == 'false'
+      run: |
+        echo "⏭️ Tests skipped - no Python files were modified"
+        echo "To force test execution, trigger this workflow manually using workflow_dispatch"
