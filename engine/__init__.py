@@ -11,6 +11,7 @@ pygame.init()
 
 from .window import Window
 from .components import *
+from .input import InputManager
 from . import text
 from . import util
 from . import theme

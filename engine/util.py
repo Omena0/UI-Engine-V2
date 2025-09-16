@@ -13,7 +13,16 @@ fps_history = deque(maxlen=100)
 def set_average_fps(fps: float):
     fps_history.append(fps)
 
-font = get_font('Arial', 15, bold=True)
+# Lazy font initialization
+font = None
+
+def get_performance_font():
+    """Get font for performance statistics, initializing if needed."""
+    global font
+    if font is None:
+        font = get_font('Arial', 15, bold=True)
+    return font
+
 # Cache for performance statistics
 _cached_stats_surface = None
 _last_stats_update = 0
@@ -51,6 +60,7 @@ def draw_performance_statistics(surface, dt) -> None:
 
         avg = get_average_fps()
         # Use cached text rendering
+        font = get_performance_font()
         fps_text = cached_render(font, f'{avg:.2f} fps', (245, 245, 246))
         frame_time_text = cached_render(font, f'({dt:.2f} ms)', (245, 245, 246))
 

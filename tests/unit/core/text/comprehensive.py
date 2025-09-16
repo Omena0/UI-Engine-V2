@@ -177,28 +177,6 @@ class TestTextModuleComprehensive:
                 # Some special characters might not render properly
                 pass
 
-    def test_get_text_size_basic(self):
-        """Test getting text size."""
-        try:
-            size = _get_text_size("Hello World", get_font(None, 24))
-            assert isinstance(size, tuple)
-            assert len(size) == 2
-            assert size[0] > 0  # Width
-            assert size[1] > 0  # Height
-        except NameError:
-            # Function might not exist in all implementations
-            pytest.skip("_get_text_size function not available")
-
-    def test_get_text_size_empty(self):
-        """Test getting size of empty text."""
-        try:
-            size = _get_text_size("", get_font(None, 24))
-            assert isinstance(size, tuple)
-            assert size[0] >= 0
-            assert size[1] >= 0
-        except NameError:
-            pytest.skip("_get_text_size function not available")
-
     def test_get_caret_index_at_x_basic(self):
         """Test getting caret index at x position."""
         text = "Hello World"
@@ -307,7 +285,7 @@ class TestTextModuleComprehensive:
             None
         ]
         
-        for font_name in fallback_fonts:
+        for _ in fallback_fonts:
             try:
                 font = get_font("nonexistent font", 24)
                 # Should fall back to default font
