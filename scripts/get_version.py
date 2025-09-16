@@ -25,6 +25,23 @@ def _candidate_from_commit_messages(max_commits: int = 200) -> Optional[str]:
                 return candidate
     return None
 
+
+def _candidate_from_git_tags() -> Optional[str]:
+    """Return a commit token like '3D' if found in recent git tags.
+
+    Looks for the most recent tag reachable from HEAD that matches the pattern.
+    """
+    try:
+        # Get the most recent tag reachable from HEAD
+        tag_desc = subprocess.check_output(["git", "describe", "--tags"], text=True).strip()
+        # Extract the tag name (before any -N-gXXXXXXX suffix)
+        tag_name = tag_desc.split('-')[0]
+        if re.match(r"^[0-9]+[A-Za-z]?$", tag_name):
+            return tag_name
+    except Exception:
+        pass
+    return None
+
 def _map_candidate_to_version(candidate: str) -> tuple[str, str]:
     """Map a candidate like '3D' to (display_name, numeric_version).
 
@@ -47,6 +64,12 @@ UI_ENGINE_VERSION = os.environ.get("UI_ENGINE_VERSION")
 
 if not (RELEASE_DISPLAY_NAME and UI_ENGINE_VERSION):
     if cand := _candidate_from_commit_messages():
+        disp, num = _map_candidate_to_version(cand)
+        if not RELEASE_DISPLAY_NAME:
+            RELEASE_DISPLAY_NAME = disp
+        if not UI_ENGINE_VERSION:
+            UI_ENGINE_VERSION = num
+    elif cand := _candidate_from_git_tags():
         disp, num = _map_candidate_to_version(cand)
         if not RELEASE_DISPLAY_NAME:
             RELEASE_DISPLAY_NAME = disp
