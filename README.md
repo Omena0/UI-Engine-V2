@@ -80,6 +80,8 @@ window.mainloop()
 - **TabFrame**: Tab container for organizing content
 - **SegmentedButton**: Multi-option button component
 - **IconButton**: Button component for icon-based interactions
+- **ChildWindow**: Draggable window container with title bar and window controls
+- **Image**: Image display component with multiple fit modes and scaling options
 
 
 ## License
