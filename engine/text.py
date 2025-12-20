@@ -31,7 +31,7 @@ def measure_line_words_width(words: list, font: pygame.font.Font) -> int:
     space_w = font.size(' ')[0]
     return sum(measure_word_width(w, font) for w in words) + space_w * (len(words) - 1)
 
-def render_word_per_char(surf: pygame.Surface, word: str, x: int, y: int, font: pygame.font.Font, color, bg_color, extras: list[int] = None):
+def render_word_per_char(surf: pygame.Surface, word: str, x: int, y: int, font: pygame.font.Font, color, bg_color, extras: list[int]|None = None):
     """Render a word character-by-character, applying DEFAULT_LETTER_SPACING between characters plus optional extras per-letter-gap."""
     extras = extras or []
     for i, ch in enumerate(word):
@@ -44,7 +44,6 @@ def render_word_per_char(surf: pygame.Surface, word: str, x: int, y: int, font: 
             if i < len(extras):
                 x += extras[i]
     return x
-# --- end added helpers ---
 
 def split_text(text: str, font: pygame.font.Font, max_width: int, justify=True) -> list[tuple[str, int, list[int]]]:
     """
@@ -291,7 +290,7 @@ def draw_text(text, font, color, bg_color=None, width=300, height=200, line_spac
                     if w:
                         n = max(len(w) - 1, 0)
                         extras_for_word = letter_gap_extras[letter_idx:letter_idx + n] if letter_gap_extras else []
-                        x = render_word_per_char(surf, w, x, y, font, color, bg_color, extras_for_word)
+                        x = render_word_per_char(surf, w, x, int(y), font, color, bg_color, extras_for_word)
                         letter_idx += n
                     if gi < len(words) - 1:
                         # apply the extra space between words
@@ -303,14 +302,14 @@ def draw_text(text, font, color, bg_color=None, width=300, height=200, line_spac
                 _, extra = space_info
                 # draw the word and advance by extra to match width
                 if line:
-                    render_word_per_char(surf, line, 0, y, font, color, bg_color)
+                    render_word_per_char(surf, line, 0, int(y), font, color, bg_color)
                 y += line_h * line_spacing
                 continue
 
         if letter_spacings:
             x = 0
             gap_idx = 0
-            for idx, ch in enumerate(line):
+            for ch in line:
                 ch_surf = font.render(ch, True, color, bg_color)
                 surf.blit(ch_surf, (x, y))
                 x += ch_surf.get_width()
@@ -326,7 +325,7 @@ def draw_text(text, font, color, bg_color=None, width=300, height=200, line_spac
         words = line.split(' ')
         for gi, w in enumerate(words):
             if w:
-                x = render_word_per_char(surf, w, x, y, font, color, bg_color)
+                x = render_word_per_char(surf, w, x, int(y), font, color, bg_color)
             if gi < len(words) - 1:
                 x += font.size(' ')[0]
         y += line_h * line_spacing

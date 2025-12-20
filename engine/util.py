@@ -1,27 +1,25 @@
 from collections import deque
+from . import text
 import pygame
-import numpy
 
-
-
-average_fps = 0
-fps_history = deque(maxlen=100)
-def set_average_fps(fps: float):
-    global average_fps
-    fps_history.append(fps)
-    average_fps = sum(fps_history) / len(fps_history) if fps_history else 0
+fps = 0
+fps_history = deque(maxlen=200)
+def set_average_fps(fps_sample: float):
+    global fps
+    fps_history.append(fps_sample)
+    fps = sum(fps_history) / len(fps_history) if fps_history else 0
 
 def draw_performance_statistics(surface, clock:pygame.time.Clock) -> None:
     frame_time = clock.get_rawtime()
-    font = get_font('Arial', 15, bold=True)
+    font = text.get_font('Arial', 15, bold=True)
 
     surf = pygame.Surface((75, 50), pygame.SRCALPHA)
     pygame.draw.rect(surf, (50, 50, 50, 200), surf.get_rect(), border_top_left_radius=8)
 
-    fps_text = font.render(f'{average_fps:.2f} fps', True, (255, 255, 255))
+    fps_text = font.render(f'{fps:.2f} fps', True, (255, 255, 255))
     frame_time_text = font.render(f'({frame_time} ms)', True, (255, 255, 255))
 
-    i = min(1, average_fps / 2000)
+    i = min(1, fps / 2000)
 
     width = surf.get_width()
 
