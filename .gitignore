@@ -1,2 +1,6 @@
 *.pyc
 __*
+.*
+!.coveragerc
+!.gitignore
+*.xml
